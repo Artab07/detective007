@@ -38,7 +38,7 @@ def show_login_screen():
         widget.destroy()
     
     # Update the window title
-    root.title("Login System")
+    root.title("Detective 007 Login")
     
     # Recreate the login screen
     label = ctk.CTkLabel(master=frame, text="Login System", font=("Roboto", 24))

@@ -88,3 +88,7 @@ These models were created by `Davis King <https://github.com/davisking/dlib-mode
 or under CC0 1.0 Universal. See LICENSE for more information.
 
 For more information about the face_recognition package, see `face_recognition <https://github.com/ageitgey/face_recognition>`__.
+
+To run the project
+-------------------
+venv\Scripts\activate
