@@ -5,7 +5,7 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
 root = ctk.CTk()
-root.geometry("800x600")
+root.geometry("1200x700")
 root.title("Detective 007")
 
 def show_welcome_screen():
@@ -90,16 +90,51 @@ def show_main_screen():
     # Update the window title
     root.title("Detective 007 - Main Screen")
     
-    frame = ctk.CTkFrame(master=root)
-    frame.pack(pady=20, padx=60, fill="both", expand=True)
+    # Create main frame
+    main_frame = ctk.CTkFrame(root)
+    main_frame.pack(pady=20, padx=20, fill="both", expand=True)
 
-    welcome_label = ctk.CTkLabel(frame, text="Welcome to Detective 007", font=("Roboto", 24))
-    welcome_label.pack(pady=20, padx=10)
-    
-    # Add more widgets for the main screen here
+    # Create three columns
+    main_frame.grid_columnconfigure(0, weight=1)  # Left column
+    main_frame.grid_columnconfigure(1, weight=7)  # Middle column (70% of the frame)
+    main_frame.grid_columnconfigure(2, weight=1)  # Right column
 
-    logout_button = ctk.CTkButton(frame, text="Logout", command=show_welcome_screen)
-    logout_button.pack(pady=12, padx=10)
+    # Left column (dashboard)
+    left_frame = ctk.CTkFrame(main_frame)
+    left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+
+    dashboard_label = ctk.CTkLabel(left_frame, text="Dashboard", font=("Roboto", 18))
+    dashboard_label.pack(pady=10)
+
+    buttons = ["Button 1", "Button 2", "Button 3", "Button 4"]
+    for button_text in buttons:
+        button = ctk.CTkButton(left_frame, text=button_text)
+        button.pack(pady=5)
+
+    # Middle column (blank area)
+    middle_frame = ctk.CTkFrame(main_frame)
+    middle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+
+    # Right column
+    right_frame = ctk.CTkFrame(main_frame)
+    right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
+
+    # Logout button (top-right)
+    logout_button = ctk.CTkButton(right_frame, text="Logout", command=show_welcome_screen)
+    logout_button.pack(anchor="ne", padx=10, pady=10)
+
+    # Create a frame for the bottom buttons
+    bottom_buttons_frame = ctk.CTkFrame(right_frame)
+    bottom_buttons_frame.pack(side="bottom", padx=10, pady=10)
+
+    # Clear Canvas and Submit Sketch buttons (bottom-right)
+    clear_canvas_button = ctk.CTkButton(bottom_buttons_frame, text="Clear Canvas")
+    clear_canvas_button.pack(pady=5)
+
+    submit_sketch_button = ctk.CTkButton(bottom_buttons_frame, text="Submit Sketch")
+    submit_sketch_button.pack(pady=5)
+
+
 
 # Start with the welcome screen
 show_welcome_screen()

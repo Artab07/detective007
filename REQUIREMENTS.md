@@ -46,7 +46,7 @@ Before running the project, you need to install the required packages and librar
 
      .. code-block:: bash
 
-        pip install dlib-19.24.2-cp312-cp312-win_amd64.whl
+        pip install dlib-19.24.99-cp312-cp312-win_amd64.whl
 
    - For other systems or Python versions, you may need to install dlib from source or find an appropriate wheel file.
 
