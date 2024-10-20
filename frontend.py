@@ -1,5 +1,8 @@
 import customtkinter as ctk
+import tkinter as tk
 import tkinter.messagebox as tkmb
+from PIL import Image
+
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -13,18 +16,54 @@ def show_welcome_screen():
     for widget in root.winfo_children():
         widget.destroy()
     
+    # Create the main frame
     frame = ctk.CTkFrame(master=root)
-    frame.pack(pady=20, padx=60, fill="both", expand=True)
+    frame.pack(fill="both", expand=True)
 
-    welcome_label = ctk.CTkLabel(frame, text="Welcome, Agent.\nDetective 007 is on the case,\nand you're now part of the mission.", 
-                                 font=("Roboto", 18), justify="center")
-    welcome_label.pack(pady=20, padx=10)
+    # Load and create the background image
+    bg_image = Image.open("images/Detective_007.jpg")  # Adjust the path as needed
+    bg_photo = ctk.CTkImage(bg_image, size=(1200, 700))  # Adjust size as needed
+    bg_label = ctk.CTkLabel(frame, image=bg_photo, text="")
+    bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
-    sign_in_button = ctk.CTkButton(frame, text="Sign In", command=show_login_screen, fg_color="#044343")
-    sign_in_button.pack(pady=12, padx=10)
+    # Create a label with the background image
+    bg_label = ctk.CTkLabel(frame, image=bg_photo, text="")
+    bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
-    sign_up_button = ctk.CTkButton(frame, text="Sign Up", command=show_signup_screen)
-    sign_up_button.pack(pady=12, padx=10)
+    # Create a semi-transparent overlay frame
+    overlay_frame = ctk.CTkFrame(frame, fg_color=("white", "gray20"), bg_color=("white", "gray20"))
+    overlay_frame.configure(fg_color=("white", "gray20"))
+    overlay_frame.configure(bg_color=("white", "gray20"))
+    overlay_frame.grid(row=0, column=0, sticky="nsew", padx=100, pady=100)  # Add some padding to make it smaller
+
+
+
+    # Welcome label
+    # welcome_label = ctk.CTkLabel(overlay_frame,
+    #                              text="Welcome, Agent.\nDetective 007 is on the case,\nand you're now part of the mission.",
+    #                              font=("Roboto", 24), 
+    #                              fg_color="transparent",  # Set foreground color to transparent
+    #                              bg_color="transparent",  # Set background color to transparent
+    #                              justify="center")
+    # welcome_label.pack(pady=40, padx=20)
+
+    # Sign In button
+    sign_in_button = ctk.CTkButton(overlay_frame,
+                                   text="Sign In",
+                                   command=show_login_screen,
+                                   fg_color="#597276",  
+                                   hover_color="#2B3C43")
+    sign_in_button.grid(row=0, column=0, pady=20, padx=40)
+
+    # Sign Up button
+    sign_up_button = ctk.CTkButton(overlay_frame,
+                                   text="Sign Up",
+                                   command=show_signup_screen,
+                                   fg_color="#597276",  
+                                   hover_color="#2B3C43")
+    sign_up_button.grid(row=1, column=0, pady=20, padx=40)
+
+
 
 def show_login_screen():
     # Clear the current contents of the window
@@ -147,15 +186,19 @@ def show_main_screen():
     logout_button = ctk.CTkButton(right_frame, text="Logout", command=show_welcome_screen, fg_color="#FF0000", hover_color="#9D0B28")
     logout_button.pack(anchor="n", padx=10, pady=10)
     
-    # Create a frame for the bottom buttons in the right frame
-    bottom_buttons_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
-    bottom_buttons_frame.pack(side="bottom", padx=10, pady=10)
+    def clear_canvas():
+    # Add code here to clear the canvas
+        print("Canvas cleared")  # Placeholder action
+
+    def submit_sketch():
+    # Add code here to submit the sketch
+        print("Sketch submitted")  # Placeholder action
     
-    clear_canvas_button = ctk.CTkButton(bottom_buttons_frame, text="Clear Canvas", fg_color="#56666F", hover_color="#314048")
-    clear_canvas_button.pack(pady=5)
+    clear_canvas_button = ctk.CTkButton(right_frame, text="Clear Canvas", command=clear_canvas, fg_color="#56666F", hover_color="#314048")
+    clear_canvas_button.pack(anchor="s", pady=5)
     
-    submit_sketch_button = ctk.CTkButton(bottom_buttons_frame, text="Submit Sketch", fg_color="#522377", hover_color="#522377")
-    submit_sketch_button.pack(pady=5)
+    submit_sketch_button = ctk.CTkButton(right_frame, text="Submit Sketch", command=submit_sketch, fg_color="#522377", hover_color="#36195B")
+    submit_sketch_button.pack(anchor="s", pady=5)
 
 
 
