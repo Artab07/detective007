@@ -109,7 +109,7 @@ def show_main_screen():
     
     # No explicit width or height for left_frame; rely on grid configuration
     # Add content to left_frame here (e.g., buttons)
-    head_button = ctk.CTkButton(left_frame, text="Head", command=show_welcome_screen)
+    head_button = ctk.CTkButton(left_frame, text="Head", command=show_welcome_screen, fg_color="#18B93B")
     head_button.pack(anchor="n", padx=5, pady=5)
 
     Hair_button = ctk.CTkButton(left_frame, text="Hair", command=show_welcome_screen)
