@@ -20,7 +20,7 @@ def show_welcome_screen():
                                  font=("Roboto", 18), justify="center")
     welcome_label.pack(pady=20, padx=10)
 
-    sign_in_button = ctk.CTkButton(frame, text="Sign In", command=show_login_screen)
+    sign_in_button = ctk.CTkButton(frame, text="Sign In", command=show_login_screen, fg_color="#044343")
     sign_in_button.pack(pady=12, padx=10)
 
     sign_up_button = ctk.CTkButton(frame, text="Sign Up", command=show_signup_screen)
@@ -109,28 +109,28 @@ def show_main_screen():
     
     # No explicit width or height for left_frame; rely on grid configuration
     # Add content to left_frame here (e.g., buttons)
-    head_button = ctk.CTkButton(left_frame, text="Head", command=show_welcome_screen, fg_color="#18B93B")
+    head_button = ctk.CTkButton(left_frame, text="Head", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     head_button.pack(anchor="n", padx=5, pady=5)
 
-    Hair_button = ctk.CTkButton(left_frame, text="Hair", command=show_welcome_screen)
+    Hair_button = ctk.CTkButton(left_frame, text="Hair", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     Hair_button.pack(anchor="n", padx=5, pady=5)
 
-    Nose_button = ctk.CTkButton(left_frame, text="Nose", command=show_welcome_screen)
+    Nose_button = ctk.CTkButton(left_frame, text="Nose", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     Nose_button.pack(anchor="n", padx=5, pady=5)
 
-    Eye_button = ctk.CTkButton(left_frame, text="Eye", command=show_welcome_screen)
+    Eye_button = ctk.CTkButton(left_frame, text="Eye", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     Eye_button.pack(anchor="n", padx=5, pady=5)
 
-    Eyebrows_button = ctk.CTkButton(left_frame, text="Eyebrows", command=show_welcome_screen)
+    Eyebrows_button = ctk.CTkButton(left_frame, text="Eyebrows", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     Eyebrows_button.pack(anchor="n", padx=5, pady=5)
 
-    Lips_button = ctk.CTkButton(left_frame, text="Lips", command=show_welcome_screen)
+    Lips_button = ctk.CTkButton(left_frame, text="Lips", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     Lips_button.pack(anchor="n", padx=5, pady=5)
 
-    Moustache_button = ctk.CTkButton(left_frame, text="Moustache", command=show_welcome_screen)
+    Moustache_button = ctk.CTkButton(left_frame, text="Moustache", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     Moustache_button.pack(anchor="n", padx=5, pady=5)
 
-    Ears_button = ctk.CTkButton(left_frame, text="Ears", command=show_welcome_screen)
+    Ears_button = ctk.CTkButton(left_frame, text="Ears", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
     Ears_button.pack(anchor="n", padx=5, pady=5)
     
     # Middle column
@@ -144,17 +144,17 @@ def show_main_screen():
     right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
     
     # No explicit width or height for right_frame; rely on grid configuration
-    logout_button = ctk.CTkButton(right_frame, text="Logout", command=show_welcome_screen)
+    logout_button = ctk.CTkButton(right_frame, text="Logout", command=show_welcome_screen, fg_color="#FF0000", hover_color="#9D0B28")
     logout_button.pack(anchor="n", padx=10, pady=10)
     
     # Create a frame for the bottom buttons in the right frame
-    bottom_buttons_frame = ctk.CTkFrame(right_frame)
+    bottom_buttons_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
     bottom_buttons_frame.pack(side="bottom", padx=10, pady=10)
     
-    clear_canvas_button = ctk.CTkButton(bottom_buttons_frame, text="Clear Canvas")
+    clear_canvas_button = ctk.CTkButton(bottom_buttons_frame, text="Clear Canvas", fg_color="#56666F", hover_color="#314048")
     clear_canvas_button.pack(pady=5)
     
-    submit_sketch_button = ctk.CTkButton(bottom_buttons_frame, text="Submit Sketch")
+    submit_sketch_button = ctk.CTkButton(bottom_buttons_frame, text="Submit Sketch", fg_color="#522377", hover_color="#522377")
     submit_sketch_button.pack(pady=5)
 
 
