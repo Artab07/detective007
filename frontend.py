@@ -93,44 +93,67 @@ def show_main_screen():
     # Create main frame
     main_frame = ctk.CTkFrame(root)
     main_frame.pack(pady=20, padx=20, fill="both", expand=True)
-
-    # Create three columns
-    main_frame.grid_columnconfigure(0, weight=1)  # Left column
-    main_frame.grid_columnconfigure(1, weight=7)  # Middle column (70% of the frame)
-    main_frame.grid_columnconfigure(2, weight=1)  # Right column
-
+    
+    # Configure rows and columns for resizing
+    main_frame.grid_rowconfigure(0, weight=1)  # Allow row expansion
+    
+    # Adjust the weights for each column to control how much space they take
+    main_frame.grid_columnconfigure(0, weight=0)  # Left column (dashboard)
+    main_frame.grid_columnconfigure(1, weight=10)  # Middle column (larger area)
+    main_frame.grid_columnconfigure(2, weight=3)  # Right column
+    
     # Left column (dashboard)
     left_frame = ctk.CTkFrame(main_frame)
     left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+    left_frame.grid_rowconfigure(0, weight=1) # Allow vertical expansion
+    
+    # No explicit width or height for left_frame; rely on grid configuration
+    # Add content to left_frame here (e.g., buttons)
+    head_button = ctk.CTkButton(left_frame, text="Head", command=show_welcome_screen)
+    head_button.pack(anchor="n", padx=5, pady=5)
 
-    dashboard_label = ctk.CTkLabel(left_frame, text="Dashboard", font=("Roboto", 18))
-    dashboard_label.pack(pady=10)
+    Hair_button = ctk.CTkButton(left_frame, text="Hair", command=show_welcome_screen)
+    Hair_button.pack(anchor="n", padx=5, pady=5)
 
-    buttons = ["Button 1", "Button 2", "Button 3", "Button 4"]
-    for button_text in buttons:
-        button = ctk.CTkButton(left_frame, text=button_text)
-        button.pack(pady=5)
+    Nose_button = ctk.CTkButton(left_frame, text="Nose", command=show_welcome_screen)
+    Nose_button.pack(anchor="n", padx=5, pady=5)
 
-    # Middle column (blank area)
+    Eye_button = ctk.CTkButton(left_frame, text="Eye", command=show_welcome_screen)
+    Eye_button.pack(anchor="n", padx=5, pady=5)
+
+    Eyebrows_button = ctk.CTkButton(left_frame, text="Eyebrows", command=show_welcome_screen)
+    Eyebrows_button.pack(anchor="n", padx=5, pady=5)
+
+    Lips_button = ctk.CTkButton(left_frame, text="Lips", command=show_welcome_screen)
+    Lips_button.pack(anchor="n", padx=5, pady=5)
+
+    Moustache_button = ctk.CTkButton(left_frame, text="Moustache", command=show_welcome_screen)
+    Moustache_button.pack(anchor="n", padx=5, pady=5)
+
+    Ears_button = ctk.CTkButton(left_frame, text="Ears", command=show_welcome_screen)
+    Ears_button.pack(anchor="n", padx=5, pady=5)
+    
+    # Middle column
     middle_frame = ctk.CTkFrame(main_frame)
     middle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
-
+    
+    # No explicit width or height for middle_frame; rely on grid configuration
+    
     # Right column
     right_frame = ctk.CTkFrame(main_frame)
     right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
-
-    # Logout button (top-right)
+    
+    # No explicit width or height for right_frame; rely on grid configuration
     logout_button = ctk.CTkButton(right_frame, text="Logout", command=show_welcome_screen)
-    logout_button.pack(anchor="ne", padx=10, pady=10)
-
-    # Create a frame for the bottom buttons
+    logout_button.pack(anchor="n", padx=10, pady=10)
+    
+    # Create a frame for the bottom buttons in the right frame
     bottom_buttons_frame = ctk.CTkFrame(right_frame)
     bottom_buttons_frame.pack(side="bottom", padx=10, pady=10)
-
-    # Clear Canvas and Submit Sketch buttons (bottom-right)
+    
     clear_canvas_button = ctk.CTkButton(bottom_buttons_frame, text="Clear Canvas")
     clear_canvas_button.pack(pady=5)
-
+    
     submit_sketch_button = ctk.CTkButton(bottom_buttons_frame, text="Submit Sketch")
     submit_sketch_button.pack(pady=5)
 
