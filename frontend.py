@@ -1,7 +1,8 @@
 import customtkinter as ctk
 import tkinter as tk
 import tkinter.messagebox as tkmb
-from PIL import Image
+import os
+from PIL import Image, ImageTk
 
 
 ctk.set_appearance_mode("dark")
@@ -23,29 +24,16 @@ def show_welcome_screen():
     # Load and create the background image
     bg_image = Image.open("images/Detective_007.jpg")  # Adjust the path as needed
     bg_photo = ctk.CTkImage(bg_image, size=(1200, 700))  # Adjust size as needed
-    bg_label = ctk.CTkLabel(frame, image=bg_photo, text="")
-    bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
     # Create a label with the background image
     bg_label = ctk.CTkLabel(frame, image=bg_photo, text="")
     bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
     # Create a semi-transparent overlay frame
-    overlay_frame = ctk.CTkFrame(frame, fg_color=("white", "gray20"), bg_color=("white", "gray20"))
-    overlay_frame.configure(fg_color=("white", "gray20"))
-    overlay_frame.configure(bg_color=("white", "gray20"))
-    overlay_frame.grid(row=0, column=0, sticky="nsew", padx=100, pady=100)  # Add some padding to make it smaller
-
-
-
-    # Welcome label
-    # welcome_label = ctk.CTkLabel(overlay_frame,
-    #                              text="Welcome, Agent.\nDetective 007 is on the case,\nand you're now part of the mission.",
-    #                              font=("Roboto", 24), 
-    #                              fg_color="transparent",  # Set foreground color to transparent
-    #                              bg_color="transparent",  # Set background color to transparent
-    #                              justify="center")
-    # welcome_label.pack(pady=40, padx=20)
+    overlay_frame = ctk.CTkFrame(frame, fg_color="transparent", bg_color="transparent")
+    overlay_frame.configure(fg_color="transparent")
+    overlay_frame.configure(bg_color="transparent")
+    overlay_frame.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.4, relheight=0.1)
 
     # Sign In button
     sign_in_button = ctk.CTkButton(overlay_frame,
@@ -53,7 +41,7 @@ def show_welcome_screen():
                                    command=show_login_screen,
                                    fg_color="#597276",  
                                    hover_color="#2B3C43")
-    sign_in_button.grid(row=0, column=0, pady=20, padx=40)
+    sign_in_button.place(relx=0.3, rely=0.5, anchor="center")
 
     # Sign Up button
     sign_up_button = ctk.CTkButton(overlay_frame,
@@ -61,7 +49,7 @@ def show_welcome_screen():
                                    command=show_signup_screen,
                                    fg_color="#597276",  
                                    hover_color="#2B3C43")
-    sign_up_button.grid(row=1, column=0, pady=20, padx=40)
+    sign_up_button.place(relx=0.7, rely=0.5, anchor="center")
 
 
 
@@ -121,6 +109,11 @@ def login():
     else:
         tkmb.showerror(title="Login Failed", message="Invalid Username and password")
 
+
+def clear_right_frame():
+    for widget in right_frame.winfo_children():
+        widget.destroy()
+
 def show_main_screen():
     # Clear the current contents of the window
     for widget in root.winfo_children():
@@ -145,42 +138,82 @@ def show_main_screen():
     left_frame = ctk.CTkFrame(main_frame)
     left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
     left_frame.grid_rowconfigure(0, weight=1) # Allow vertical expansion
+
     
-    # No explicit width or height for left_frame; rely on grid configuration
-    # Add content to left_frame here (e.g., buttons)
-    head_button = ctk.CTkButton(left_frame, text="Head", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    head_button.pack(anchor="n", padx=5, pady=5)
+    # Right column
+    global right_frame
+    right_frame = ctk.CTkFrame(main_frame)
+    right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
 
-    Hair_button = ctk.CTkButton(left_frame, text="Hair", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    Hair_button.pack(anchor="n", padx=5, pady=5)
-
-    Nose_button = ctk.CTkButton(left_frame, text="Nose", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    Nose_button.pack(anchor="n", padx=5, pady=5)
-
-    Eye_button = ctk.CTkButton(left_frame, text="Eye", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    Eye_button.pack(anchor="n", padx=5, pady=5)
-
-    Eyebrows_button = ctk.CTkButton(left_frame, text="Eyebrows", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    Eyebrows_button.pack(anchor="n", padx=5, pady=5)
-
-    Lips_button = ctk.CTkButton(left_frame, text="Lips", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    Lips_button.pack(anchor="n", padx=5, pady=5)
-
-    Moustache_button = ctk.CTkButton(left_frame, text="Moustache", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    Moustache_button.pack(anchor="n", padx=5, pady=5)
-
-    Ears_button = ctk.CTkButton(left_frame, text="Ears", command=show_welcome_screen, fg_color="#016764", hover_color="#014848")
-    Ears_button.pack(anchor="n", padx=5, pady=5)
+    # Image display area in the right column
+    image_label = ctk.CTkLabel(right_frame, text="Select a facial element", width=200, height=200)
+    image_label.pack(pady=20)
     
+    # Add facial element buttons to left_frame
+    facial_elements = ["Head", "Hair", "Nose", "Eye", "Eyebrows", "Lips", "Moustache", "Ears"]
+    for element in facial_elements:
+        button = ctk.CTkButton(left_frame, text=element, 
+                               command=lambda e=element: show_facial_element(e),
+                               fg_color="#016764", hover_color="#014848")
+        button.pack(anchor="n", padx=5, pady=5)
+
+    
+    # Function to display the selected facial element image
+    def show_facial_element(element):
+        element_folder = element.lower()
+        if element_folder == "moustache":
+            element_folder = "mustach"  # Adjust for the spelling in the folder name
+        image_folder = os.path.join("face_features", element_folder)
+        print(f"Searching for images in: {image_folder}")
+        
+        if os.path.exists(image_folder) and os.path.isdir(image_folder):
+            image_files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+            if image_files:
+                display_image_matrix(image_files, image_folder, element)
+            else:
+                print(f"No image files found in {image_folder}")
+                clear_right_frame()
+                ctk.CTkLabel(right_frame, text=f"No images for {element}").pack(pady=20)
+        else:
+            print(f"Folder not found: {image_folder}")
+            clear_right_frame()
+            ctk.CTkLabel(right_frame, text=f"No folder for {element}").pack(pady=20)
+
+    def display_image_matrix(image_files, image_folder, element):
+        clear_right_frame()
+        
+        # Create a scrollable frame
+        scrollable_frame = ctk.CTkScrollableFrame(right_frame)
+        scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Create a grid layout
+        row = 0
+        col = 0
+        for file in image_files:
+            image_path = os.path.join(image_folder, file)
+            img = Image.open(image_path)
+            img = img.resize((150, 150), Image.LANCZOS)
+            photo = ctk.CTkImage(img, size=(150, 150))
+            
+            image_button = ctk.CTkButton(scrollable_frame, image=photo, text="", width=150, height=150)
+            image_button.grid(row=row, column=col, padx=5, pady=5)
+            
+            col += 1
+            if col == 2:  # Move to next row after 2 columns
+                col = 0
+                row += 1
+    
+    # Add label to show selected element
+    ctk.CTkLabel(right_frame, text=f"Selected: {element}").pack(pady=10)
+
+
+
     # Middle column
     middle_frame = ctk.CTkFrame(main_frame)
     middle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
     
     # No explicit width or height for middle_frame; rely on grid configuration
     
-    # Right column
-    right_frame = ctk.CTkFrame(main_frame)
-    right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
     
     # No explicit width or height for right_frame; rely on grid configuration
     logout_button = ctk.CTkButton(right_frame, text="Logout", command=show_welcome_screen, fg_color="#FF0000", hover_color="#9D0B28")
