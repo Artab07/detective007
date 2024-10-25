@@ -15,6 +15,9 @@ root.geometry("1200x700")
 root.title("Detective 007")
 
 def show_welcome_screen():
+    # Update the window title first
+    root.title("Detective 007")
+    
     # Clear the current contents of the window
     for widget in root.winfo_children():
         widget.destroy()
@@ -52,6 +55,7 @@ def show_welcome_screen():
                                    fg_color="#597276",  
                                    hover_color="#2B3C43")
     sign_up_button.place(relx=0.7, rely=0.5, anchor="center")
+
 
 def show_login_screen():
     # Clear the current contents of the window
@@ -259,6 +263,7 @@ def display_image_matrix(image_files, image_folder, element):
     row = 0
     col = 0
     max_cols = 2  # Number of columns in the grid
+    image_size = (150, 150)
     
     # First, add the label showing the selected element
     label = ctk.CTkLabel(scrollable_frame, text=f"Selected: {element}")
@@ -268,13 +273,41 @@ def display_image_matrix(image_files, image_folder, element):
     # Then add the images
     for file in image_files:
         image_path = os.path.join(image_folder, file)
+        # Open the original image
         img = Image.open(image_path)
-        img = img.resize((150, 150), Image.LANCZOS)
-        photo = ctk.CTkImage(img, size=(150, 150))
         
-        image_button = ctk.CTkButton(scrollable_frame, image=photo, text="", 
-                                   width=150, height=150)
-        image_button.grid(row=row, column=col, padx=5, pady=5)
+        # Convert the image to RGBA if it isn't already
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        
+        # Create a white background image
+        background = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        
+        # Paste the image on the white background using the alpha channel as mask
+        composite = Image.alpha_composite(background, img)
+        
+        # Convert back to RGB mode (removing alpha channel)
+        composite = composite.convert('RGB')
+        
+        # Resize the image
+        composite = composite.resize(image_size, Image.LANCZOS)
+        
+        # Create CTkImage
+        photo = ctk.CTkImage(composite, size=image_size)
+        
+        # Create a frame with white background for the image
+        image_frame = ctk.CTkFrame(scrollable_frame, fg_color="white")
+        image_frame.grid(row=row, column=col, padx=5, pady=5)
+        
+        # Create the button with the image inside the white frame
+        image_button = ctk.CTkButton(image_frame, 
+                                   image=photo, 
+                                   text="", 
+                                   width=image_size[0], 
+                                   height=image_size[1],
+                                   fg_color="white",  # Button background color
+                                   hover_color="#4283BD")  # Light gray on hover
+        image_button.pack(padx=2, pady=2)
         
         col += 1
         if col == max_cols:  # Move to next row after max_cols columns
@@ -284,6 +317,7 @@ def display_image_matrix(image_files, image_folder, element):
     # Configure grid columns to be equal width
     for i in range(max_cols):
         scrollable_frame.grid_columnconfigure(i, weight=1)
+
 # Start with the welcome screen
 show_welcome_screen()
 
