@@ -15,9 +15,6 @@ root.geometry("1200x700")
 root.title("Detective 007")
 
 def show_welcome_screen():
-    # Update the window title first
-    root.title("Detective 007")
-    
     # Clear the current contents of the window
     for widget in root.winfo_children():
         widget.destroy()
@@ -55,6 +52,7 @@ def show_welcome_screen():
                                    fg_color="#597276",  
                                    hover_color="#2B3C43")
     sign_up_button.place(relx=0.7, rely=0.5, anchor="center")
+
 
 
 def show_login_screen():
@@ -191,6 +189,13 @@ def show_main_screen():
     # 1. Top part for logout button
     top_frame = ctk.CTkFrame(right_frame)
     top_frame.pack(side="top", fill="x", padx=5, pady=5)
+
+    def delete_shape():
+        print("Shape Deleted")
+
+    delete_shape_btn = ctk.CTkButton(top_frame, text="Delete Shape", command=delete_shape, 
+                             fg_color="#56666F", hover_color="#314048")
+    delete_shape_btn.pack(side="left", padx=5, pady=5)
     
     logout_btn = ctk.CTkButton(top_frame, text="Logout", command=show_welcome_screen, 
                               fg_color="#FF0000", hover_color="#9D0B28")
