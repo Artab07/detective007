@@ -1,7 +1,7 @@
 Detective007 Face Recognition Project
 =====================================
 
-This project is a face recognition system using Python, OpenCV, and the face_recognition library.
+This project is a forensic sketch creation and criminal detection system using Python, OpenCV, and the face_recognition library.
 
 This package contains the models used by the face_recognition package.
 
