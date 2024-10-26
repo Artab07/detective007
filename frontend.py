@@ -3,9 +3,244 @@ import tkinter as tk
 import tkinter.messagebox as tkmb
 import os
 from PIL import Image, ImageTk
+import math
 
 # Initialize global variables
 middle_frame_right = None
+sketch_canvas = None
+
+class DraggableFeature:
+    def __init__(self, canvas, image_path, initial_position=(0, 0)):
+        self.canvas = canvas
+        self.image_path = image_path
+        
+        # Load and store the original image with transparency
+        self.original_image = Image.open(image_path)
+        if self.original_image.mode != 'RGBA':
+            self.original_image = self.original_image.convert('RGBA')
+        
+        # Initialize transformation values
+        self.scale = 1.0
+        self.rotation = 0
+        self.position = initial_position
+        
+        # Create image on canvas
+        self.update_image()
+        
+        # Bind mouse events
+        self.canvas.tag_bind(self.id, '<Button-1>', self.on_press)
+        self.canvas.tag_bind(self.id, '<B1-Motion>', self.on_drag)
+        self.canvas.tag_bind(self.id, '<Button-3>', self.show_context_menu)
+        
+        # Create resize handles
+        self.create_handles()
+
+    def update_image(self):
+        # Apply transformations
+        image = self.original_image.copy()
+        
+        # Resize
+        new_size = (
+            int(image.width * self.scale),
+            int(image.height * self.scale)
+        )
+        image = image.resize(new_size, Image.LANCZOS)
+        
+        # Rotate
+        image = image.rotate(self.rotation, expand=True, resample=Image.BICUBIC)
+        
+        # Convert to PhotoImage while preserving transparency
+        self.image = ImageTk.PhotoImage(image)
+        
+        # Update or create canvas image
+        if hasattr(self, 'id'):
+            self.canvas.delete(self.id)
+        self.id = self.canvas.create_image(
+            self.position[0], self.position[1],
+            image=self.image,
+            anchor='center',
+            tags='feature'
+        )
+        
+        # Update handles
+        if hasattr(self, 'handles'):
+            self.update_handles()
+    
+    def create_handles(self):
+        self.handles = []
+        
+        # Create resize handles at corners
+        handle_positions = ['nw', 'ne', 'se', 'sw']
+        for pos in handle_positions:
+            handle = self.canvas.create_rectangle(0, 0, 8, 8,
+                                               fill='white',
+                                               outline='blue',
+                                               tags=('handle', f'handle_{pos}'))
+            self.handles.append(handle)
+            
+            # Bind events
+            self.canvas.tag_bind(handle, '<Button-1>', lambda e, p=pos: self.start_resize(e, p))
+            self.canvas.tag_bind(handle, '<B1-Motion>', self.on_resize)
+        
+        self.update_handles()
+        self.hide_handles()
+    
+    def update_handles(self):
+        bbox = self.canvas.bbox(self.id)
+        if not bbox:
+            return
+            
+        # Get center and dimensions
+        cx, cy = (bbox[0] + bbox[2])/2, (bbox[1] + bbox[3])/2
+        width, height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        
+        # Update handle positions
+        positions = {
+            'nw': (bbox[0], bbox[1]),
+            'ne': (bbox[2], bbox[1]),
+            'se': (bbox[2], bbox[3]),
+            'sw': (bbox[0], bbox[3])
+        }
+        
+        for handle, pos in zip(self.handles, positions.values()):
+            self.canvas.coords(handle, 
+                             pos[0]-4, pos[1]-4,
+                             pos[0]+4, pos[1]+4)
+    
+    def show_handles(self):
+        for handle in self.handles:
+            self.canvas.itemconfig(handle, state='normal')
+    
+    def hide_handles(self):
+        for handle in self.handles:
+            self.canvas.itemconfig(handle, state='hidden')
+    
+    def on_press(self, event):
+        self.drag_start_x = event.x
+        self.drag_start_y = event.y
+        self.start_pos = self.position
+        
+        # Bring to front
+        self.canvas.tag_raise(self.id)
+        for handle in self.handles:
+            self.canvas.tag_raise(handle)
+        
+        # Show handles
+        self.show_handles()
+    
+    def on_drag(self, event):
+        dx = event.x - self.drag_start_x
+        dy = event.y - self.drag_start_y
+        
+        self.position = (self.start_pos[0] + dx, self.start_pos[1] + dy)
+        self.canvas.coords(self.id, self.position[0], self.position[1])
+        self.update_handles()
+    
+    def start_resize(self, event, handle_pos):
+        self.resize_start = (event.x, event.y)
+        self.resize_start_scale = self.scale
+        self.resize_handle = handle_pos
+    
+    def on_resize(self, event):
+        if not hasattr(self, 'resize_start'):
+            return
+            
+        # Calculate distance moved
+        dx = event.x - self.resize_start[0]
+        dy = event.y - self.resize_start[1]
+        
+        # Calculate new scale based on diagonal movement
+        distance = math.sqrt(dx**2 + dy**2)
+        direction = 1 if dx + dy > 0 else -1
+        
+        # Update scale
+        self.scale = self.resize_start_scale * (1 + direction * distance/100)
+        self.scale = max(0.1, min(3.0, self.scale))  # Limit scale range
+        
+        # Update image
+        self.update_image()
+    
+    def show_context_menu(self, event):
+        menu = tk.Menu(self.canvas, tearoff=0)
+        
+        # Add rotation options
+        menu.add_command(label="Rotate Left", 
+                        command=lambda: self.rotate(-15))
+        menu.add_command(label="Rotate Right", 
+                        command=lambda: self.rotate(15))
+        
+        # Add layer options
+        menu.add_separator()
+        menu.add_command(label="Bring to Front", 
+                        command=self.bring_to_front)
+        menu.add_command(label="Send to Back", 
+                        command=self.send_to_back)
+        
+        # Delete option
+        menu.add_separator()
+        menu.add_command(label="Delete", 
+                        command=self.delete)
+        
+        menu.tk_popup(event.x_root, event.y_root)
+    
+    def rotate(self, angle):
+        self.rotation = (self.rotation + angle) % 360
+        self.update_image()
+    
+    def bring_to_front(self):
+        self.canvas.tag_raise(self.id)
+        for handle in self.handles:
+            self.canvas.tag_raise(handle)
+    
+    def send_to_back(self):
+        self.canvas.tag_lower(self.id)
+    
+    def delete(self):
+        self.canvas.delete(self.id)
+        for handle in self.handles:
+            self.canvas.delete(handle)
+
+class SketchCanvas(ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        
+        # Create canvas with white background
+        self.canvas = tk.Canvas(self, bg='white')
+        self.canvas.pack(fill="both", expand=True)
+        
+        self.features = []
+        
+        # Bind canvas click to deselect
+        self.canvas.bind('<Button-1>', self.deselect_all)
+    
+    def add_feature(self, image_path):
+        # Get canvas center
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        center = (canvas_width//2, canvas_height//2)
+        
+        # Create new feature
+        feature = DraggableFeature(self.canvas, image_path, center)
+        self.features.append(feature)
+        return feature
+    
+    def deselect_all(self, event=None):
+        if event and self.canvas.find_withtag('current'):
+            return
+        for feature in self.features:
+            feature.hide_handles()
+    
+    def clear_canvas(self):
+        self.canvas.delete('all')
+        self.features.clear()
+    
+    def delete_last_shape(self):
+        if self.features:
+            last_feature = self.features.pop()  # Remove last feature from list
+            last_feature.delete()  # Delete from canvas
+            return True
+        return False
+
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -177,13 +412,17 @@ def show_main_screen():
     left_frame.grid_rowconfigure(0, weight=1)
 
     # Right column
-    global right_frame, middle_frame, middle_frame_right
+    global right_frame, middle_frame, middle_frame_right, sketch_canvas
     right_frame = ctk.CTkFrame(main_frame)
     right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
     
     # Middle column
     middle_frame = ctk.CTkFrame(main_frame)
     middle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+    
+    # Create SketchCanvas in middle frame
+    sketch_canvas = SketchCanvas(middle_frame)
+    sketch_canvas.pack(fill="both", expand=True, padx=10, pady=10)
 
     # Divide right frame into 3 parts
     # 1. Top part for logout button
@@ -191,7 +430,10 @@ def show_main_screen():
     top_frame.pack(side="top", fill="x", padx=5, pady=5)
 
     def delete_shape():
-        print("Shape Deleted")
+        if sketch_canvas.delete_last_shape():
+            print("Shape Deleted")
+        else:
+            print("No shapes to delete")
 
     delete_shape_btn = ctk.CTkButton(top_frame, text="Delete Shape", command=delete_shape, 
                              fg_color="#56666F", hover_color="#314048")
@@ -212,28 +454,27 @@ def show_main_screen():
     # 3. Bottom part for buttons
     bottom_frame = ctk.CTkFrame(right_frame)
     bottom_frame.pack(side="bottom", fill="x", padx=5, pady=5)
-
-    def clear_canvas():
-        print("Canvas cleared")
-
-    def submit_sketch():
-        print("Sketch submitted")
     
-    clear_btn = ctk.CTkButton(bottom_frame, text="Clear Canvas", command=clear_canvas, 
+    clear_btn = ctk.CTkButton(bottom_frame, text="Clear Canvas", command=sketch_canvas.clear_canvas, 
                              fg_color="#56666F", hover_color="#314048")
     clear_btn.pack(side="left", padx=5, pady=5)
+    
+    def submit_sketch():
+        print("Sketch submitted")
     
     submit_btn = ctk.CTkButton(bottom_frame, text="Submit Sketch", command=submit_sketch, 
                               fg_color="#522377", hover_color="#36195B")
     submit_btn.pack(side="right", padx=5, pady=5)
     
     # Add facial element buttons to left_frame
-    facial_elements = ["Head", "Hair", "Nose", "Eye", "Eyebrows", "Lips", "Moustache", "Ears"]
+    facial_elements = ["Head", "Hair", "Neck", "Nose", "Eyes", "Eyebrows", "Lips", "Moustache", "Ears"]
     for element in facial_elements:
         button = ctk.CTkButton(left_frame, text=element, 
                               command=lambda e=element: show_facial_element(e),
                               fg_color="#016764", hover_color="#014848")
         button.pack(anchor="n", padx=5, pady=5)
+
+
 
 def show_facial_element(element):
     element_folder = element.lower()
@@ -257,69 +498,58 @@ def show_facial_element(element):
         ctk.CTkLabel(middle_frame_right, text=f"No folder for {element}").pack(pady=20)
 
 def display_image_matrix(image_files, image_folder, element):
-    global middle_frame_right
+    global middle_frame_right, sketch_canvas
     clear_middle_frame_right()
     
-    # Create a scrollable frame
     scrollable_frame = ctk.CTkScrollableFrame(middle_frame_right)
     scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
     
-    # Create a grid layout
+    # Create grid layout
     row = 0
     col = 0
-    max_cols = 2  # Number of columns in the grid
+    max_cols = 2
     image_size = (150, 150)
     
-    # First, add the label showing the selected element
     label = ctk.CTkLabel(scrollable_frame, text=f"Selected: {element}")
     label.grid(row=row, column=0, columnspan=max_cols, pady=10)
-    row += 1  # Move to next row
+    row += 1
     
-    # Then add the images
     for file in image_files:
         image_path = os.path.join(image_folder, file)
-        # Open the original image
         img = Image.open(image_path)
         
-        # Convert the image to RGBA if it isn't already
+        # Convert to RGBA for display purposes only
         if img.mode != 'RGBA':
             img = img.convert('RGBA')
         
-        # Create a white background image
+        # For display in the selection panel only, add white background
         background = Image.new('RGBA', img.size, (255, 255, 255, 255))
-        
-        # Paste the image on the white background using the alpha channel as mask
         composite = Image.alpha_composite(background, img)
-        
-        # Convert back to RGB mode (removing alpha channel)
         composite = composite.convert('RGB')
-        
-        # Resize the image
         composite = composite.resize(image_size, Image.LANCZOS)
         
-        # Create CTkImage
         photo = ctk.CTkImage(composite, size=image_size)
         
-        # Create a frame with white background for the image
         image_frame = ctk.CTkFrame(scrollable_frame, fg_color="white")
         image_frame.grid(row=row, column=col, padx=5, pady=5)
         
-        # Create the button with the image inside the white frame
-        image_button = ctk.CTkButton(image_frame, 
-                                   image=photo, 
-                                   text="", 
-                                   width=image_size[0], 
-                                   height=image_size[1],
-                                   fg_color="white",  # Button background color
-                                   hover_color="#4283BD")  # Light gray on hover
+        image_button = ctk.CTkButton(
+            image_frame,
+            image=photo,
+            text="",
+            width=image_size[0],
+            height=image_size[1],
+            fg_color="white",
+            hover_color="#4283BD",
+            command=lambda path=image_path: sketch_canvas.add_feature(path)
+        )
         image_button.pack(padx=2, pady=2)
         
         col += 1
-        if col == max_cols:  # Move to next row after max_cols columns
+        if col == max_cols:
             col = 0
             row += 1
-
-    # Configure grid columns to be equal width
+    
     for i in range(max_cols):
         scrollable_frame.grid_columnconfigure(i, weight=1)
 
