@@ -27,14 +27,39 @@ class DraggableFeature:
         # Create image on canvas
         self.update_image()
         
-        # Bind mouse events
-        self.canvas.tag_bind(self.id, '<Button-1>', self.on_press)
-        self.canvas.tag_bind(self.id, '<B1-Motion>', self.on_drag)
-        self.canvas.tag_bind(self.id, '<Button-3>', self.show_context_menu)
-        
         # Create resize handles
         self.create_handles()
+        
+        # Bind mouse events
+        self.rebind_events()
 
+    def rebind_events(self):
+        """Rebind all mouse events to ensure they work after updates"""
+        self.canvas.tag_bind(self.id, '<Button-1>', self.on_press)
+        self.canvas.tag_bind(self.id, '<B1-Motion>', self.on_drag)
+        self.canvas.tag_bind(self.id, '<ButtonRelease-1>', self.on_release)
+        self.canvas.tag_bind(self.id, '<Button-3>', self.show_context_menu)
+    
+    def create_handles(self):
+        self.handles = []
+        
+        # Create resize handles at corners
+        handle_positions = ['nw', 'ne', 'se', 'sw']
+        for pos in handle_positions:
+            handle = self.canvas.create_rectangle(0, 0, 8, 8,
+                                               fill='white',
+                                               outline='blue',
+                                               tags=('handle', f'handle_{pos}'))
+            self.handles.append(handle)
+            
+            # Bind events
+            self.canvas.tag_bind(handle, '<Button-1>', lambda e, p=pos: self.start_resize(e, p))
+            self.canvas.tag_bind(handle, '<B1-Motion>', self.on_resize)
+            self.canvas.tag_bind(handle, '<ButtonRelease-1>', self.on_resize_complete)
+        
+        self.update_handles()
+        self.hide_handles()
+    
     def update_image(self):
         # Apply transformations
         image = self.original_image.copy()
@@ -54,7 +79,12 @@ class DraggableFeature:
         
         # Update or create canvas image
         if hasattr(self, 'id'):
+            # Store the current position before deleting
+            current_pos = self.position
             self.canvas.delete(self.id)
+            # Restore the position
+            self.position = current_pos
+        
         self.id = self.canvas.create_image(
             self.position[0], self.position[1],
             image=self.image,
@@ -62,28 +92,12 @@ class DraggableFeature:
             tags='feature'
         )
         
+        # Rebind events after updating image
+        self.rebind_events()
+        
         # Update handles
         if hasattr(self, 'handles'):
             self.update_handles()
-    
-    def create_handles(self):
-        self.handles = []
-        
-        # Create resize handles at corners
-        handle_positions = ['nw', 'ne', 'se', 'sw']
-        for pos in handle_positions:
-            handle = self.canvas.create_rectangle(0, 0, 8, 8,
-                                               fill='white',
-                                               outline='blue',
-                                               tags=('handle', f'handle_{pos}'))
-            self.handles.append(handle)
-            
-            # Bind events
-            self.canvas.tag_bind(handle, '<Button-1>', lambda e, p=pos: self.start_resize(e, p))
-            self.canvas.tag_bind(handle, '<B1-Motion>', self.on_resize)
-        
-        self.update_handles()
-        self.hide_handles()
     
     def update_handles(self):
         bbox = self.canvas.bbox(self.id)
@@ -106,10 +120,13 @@ class DraggableFeature:
             self.canvas.coords(handle, 
                              pos[0]-4, pos[1]-4,
                              pos[0]+4, pos[1]+4)
+            # Ensure handles stay above the image
+            self.canvas.tag_raise(handle, self.id)
     
     def show_handles(self):
         for handle in self.handles:
             self.canvas.itemconfig(handle, state='normal')
+            self.canvas.tag_raise(handle, self.id)
     
     def hide_handles(self):
         for handle in self.handles:
@@ -119,11 +136,6 @@ class DraggableFeature:
         self.drag_start_x = event.x
         self.drag_start_y = event.y
         self.start_pos = self.position
-        
-        # Bring to front
-        self.canvas.tag_raise(self.id)
-        for handle in self.handles:
-            self.canvas.tag_raise(handle)
         
         # Show handles
         self.show_handles()
@@ -136,10 +148,16 @@ class DraggableFeature:
         self.canvas.coords(self.id, self.position[0], self.position[1])
         self.update_handles()
     
+    def on_release(self, event):
+        # Update the starting position for next drag
+        self.start_pos = self.position
+    
     def start_resize(self, event, handle_pos):
         self.resize_start = (event.x, event.y)
         self.resize_start_scale = self.scale
         self.resize_handle = handle_pos
+        # Store current position
+        self.resize_start_pos = self.position
     
     def on_resize(self, event):
         if not hasattr(self, 'resize_start'):
@@ -157,8 +175,15 @@ class DraggableFeature:
         self.scale = self.resize_start_scale * (1 + direction * distance/100)
         self.scale = max(0.1, min(3.0, self.scale))  # Limit scale range
         
+        # Preserve position during resize
+        self.position = self.resize_start_pos
+        
         # Update image
         self.update_image()
+    
+    def on_resize_complete(self, event):
+        if hasattr(self, 'resize_start'):
+            delattr(self, 'resize_start')
     
     def show_context_menu(self, event):
         menu = tk.Menu(self.canvas, tearoff=0)
@@ -188,17 +213,29 @@ class DraggableFeature:
         self.update_image()
     
     def bring_to_front(self):
+        # Raise the image above all other features
         self.canvas.tag_raise(self.id)
+        # Raise the handles above the image
         for handle in self.handles:
             self.canvas.tag_raise(handle)
     
     def send_to_back(self):
-        self.canvas.tag_lower(self.id)
+        # Find all feature items
+        all_features = self.canvas.find_withtag('feature')
+        if len(all_features) > 1:
+            # Get the bottom-most feature
+            bottom_feature = min(all_features)
+            # Move current feature below it
+            self.canvas.tag_lower(self.id, bottom_feature)
+            # Keep handles above the image but below other features
+            for handle in self.handles:
+                self.canvas.tag_raise(handle, self.id)
     
     def delete(self):
         self.canvas.delete(self.id)
         for handle in self.handles:
             self.canvas.delete(handle)
+
 
 class SketchCanvas(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -321,7 +358,7 @@ def show_login_screen():
     user_pass = ctk.CTkEntry(master=frame, placeholder_text="Password", show="*")
     user_pass.pack(pady=12, padx=10)
 
-    button = ctk.CTkButton(master=frame, text="Login", command=login)
+    button = ctk.CTkButton(master=frame, text="Login", command=show_premain_screen)
     button.pack(pady=12, padx=10)
 
     checkbox = ctk.CTkCheckBox(master=frame, text="Remember Me")
@@ -381,6 +418,39 @@ def login():
         tkmb.showwarning(title='Wrong username', message='Please check your username')
     else:
         tkmb.showerror(title="Login Failed", message="Invalid Username and password")
+
+
+def show_premain_screen():
+    # Clear the current contents of the window
+    for widget in root.winfo_children():
+        widget.destroy()
+    
+    frame = ctk.CTkFrame(master=root)
+    frame.pack(pady=20, padx=60, fill="both", expand=True)
+
+    # Update the window title
+    root.title("Detective 007 - Choose")
+
+    # Add back arrow button
+    back_button = ctk.CTkButton(frame, text="←", command=show_login_screen, width=50,
+                            fg_color="transparent",
+                            text_color="white",
+                            hover_color="#4283BD",
+                            text_color_disabled="gray")
+
+    back_button.pack(anchor="nw", padx=10, pady=10)
+    
+    # Recreate the before main screen
+    label = ctk.CTkLabel(master=frame, text="Create Sketch / Upload Sketch", font=("Roboto", 24))
+    label.pack(pady=20, padx=10)
+
+    button = ctk.CTkButton(master=frame, text="Create Sketch", command=show_main_screen)
+    button.pack(pady=12, padx=10)
+
+    button = ctk.CTkButton(master=frame, text="Upload Sketch", command=login)
+    button.pack(pady=12, padx=10)
+
+
 
 def clear_middle_frame_right():
     global middle_frame_right
