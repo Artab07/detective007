@@ -1,4 +1,4 @@
-Detective007 Face Recognition Project
+Detective007 Forensic Sketch creation and Criminal Detection System
 =====================================
 
 This project is a forensic sketch creation and criminal detection system using Python, OpenCV, and the face_recognition library.
