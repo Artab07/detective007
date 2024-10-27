@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import tkinter as tk
+from tkinter import filedialog
 import tkinter.messagebox as tkmb
 import os
 from PIL import Image, ImageTk
@@ -427,29 +428,70 @@ def show_premain_screen():
     
     frame = ctk.CTkFrame(master=root)
     frame.pack(pady=20, padx=60, fill="both", expand=True)
-
+    
     # Update the window title
     root.title("Detective 007 - Choose")
-
+    
     # Add back arrow button
-    back_button = ctk.CTkButton(frame, text="←", command=show_login_screen, width=50,
-                            fg_color="transparent",
-                            text_color="white",
-                            hover_color="#4283BD",
-                            text_color_disabled="gray")
-
+    back_button = ctk.CTkButton(frame, text="←", 
+                               command=show_login_screen, 
+                               width=50,
+                               fg_color="transparent",
+                               text_color="white",
+                               hover_color="#4283BD",
+                               text_color_disabled="gray")
     back_button.pack(anchor="nw", padx=10, pady=10)
     
     # Recreate the before main screen
     label = ctk.CTkLabel(master=frame, text="Create Sketch / Upload Sketch", font=("Roboto", 24))
     label.pack(pady=20, padx=10)
-
+    
     button = ctk.CTkButton(master=frame, text="Create Sketch", command=show_main_screen)
     button.pack(pady=12, padx=10)
-
-    button = ctk.CTkButton(master=frame, text="Upload Sketch", command=login)
-    button.pack(pady=12, padx=10)
-
+    
+    def handle_upload():
+        # Define allowed file types
+        filetypes = (
+            ('PNG files', '*.png'),
+            ('JPEG files', '*.jpg;*.jpeg'),
+            ('All files', '*.*')
+        )
+        
+        # Open file dialog
+        filename = filedialog.askopenfilename(
+            title='Upload Sketch',
+            initialdir='/',
+            filetypes=filetypes
+        )
+        
+        # Check if a file was selected
+        if filename:
+            # Get the file extension
+            _, file_extension = os.path.splitext(filename)
+            
+            # Validate file type
+            if file_extension.lower() in ['.png', '.jpg', '.jpeg']:
+                # Here you can add code to handle the uploaded file
+                print(f"File uploaded: {filename}")
+                # You might want to:
+                # 1. Copy the file to a specific directory
+                # 2. Process the image
+                # 3. Display the image
+                # 4. Move to the next screen with the uploaded image
+            else:
+                # Show error message if invalid file type
+                show_error_message("Invalid file type. Please select a PNG or JPG or JPEG file.")
+    
+    def show_error_message(message):
+        error_label = ctk.CTkLabel(master=frame, 
+                                 text=message, 
+                                 text_color="red")
+        error_label.pack(pady=12, padx=10)
+        # Remove error message after 3 seconds
+        frame.after(3000, error_label.destroy)
+    
+    upload_button = ctk.CTkButton(master=frame, text="Upload Sketch", command=handle_upload)
+    upload_button.pack(pady=12, padx=10)
 
 
 def clear_middle_frame_right():
