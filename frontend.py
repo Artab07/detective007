@@ -340,7 +340,7 @@ def show_login_screen():
     root.title("Detective 007 Login")
 
     # Add back arrow button
-    back_button = ctk.CTkButton(frame, text="←", command=show_welcome_screen, width=50,
+    back_button = ctk.CTkButton(master=frame, text="←", command=show_welcome_screen, width=50,
                             fg_color="transparent",
                             text_color="white",
                             hover_color="#4283BD",
@@ -449,49 +449,63 @@ def show_premain_screen():
     button = ctk.CTkButton(master=frame, text="Create Sketch", command=show_main_screen)
     button.pack(pady=12, padx=10)
     
-    def handle_upload():
-        # Define allowed file types
-        filetypes = (
-            ('PNG files', '*.png'),
-            ('JPEG files', '*.jpg;*.jpeg'),
-            ('All files', '*.*')
-        )
-        
-        # Open file dialog
-        filename = filedialog.askopenfilename(
-            title='Upload Sketch',
-            initialdir='/',
-            filetypes=filetypes
-        )
-        
-        # Check if a file was selected
-        if filename:
-            # Get the file extension
-            _, file_extension = os.path.splitext(filename)
-            
-            # Validate file type
-            if file_extension.lower() in ['.png', '.jpg', '.jpeg']:
-                # Here you can add code to handle the uploaded file
-                print(f"File uploaded: {filename}")
-                # You might want to:
-                # 1. Copy the file to a specific directory
-                # 2. Process the image
-                # 3. Display the image
-                # 4. Move to the next screen with the uploaded image
-            else:
-                # Show error message if invalid file type
-                show_error_message("Invalid file type. Please select a PNG or JPG or JPEG file.")
-    
-    def show_error_message(message):
-        error_label = ctk.CTkLabel(master=frame, 
-                                 text=message, 
-                                 text_color="red")
-        error_label.pack(pady=12, padx=10)
-        # Remove error message after 3 seconds
-        frame.after(3000, error_label.destroy)
-    
-    upload_button = ctk.CTkButton(master=frame, text="Upload Sketch", command=handle_upload)
+    upload_button = ctk.CTkButton(master=frame, text="Upload Sketch", command=show_premain_screen_2)
     upload_button.pack(pady=12, padx=10)
+
+
+def show_premain_screen_2():
+    # Clear the current contents of the window
+    for widget in root.winfo_children():
+        widget.destroy()
+
+    # Update the window title
+    root.title("Detective 007 - Upload or take picture")
+
+    # Create main frame
+    main_frame = ctk.CTkFrame(root)
+    main_frame.pack(pady=20, padx=20, fill="both", expand=True)
+
+    # Configure rows and columns for resizing
+    main_frame.grid_rowconfigure(0, weight=5)  # First row (for frames) gets more weight
+    main_frame.grid_rowconfigure(1, weight=1)  # Second row (for buttons) gets less weight
+    main_frame.grid_columnconfigure(0, weight=5)
+    main_frame.grid_columnconfigure(1, weight=5)
+    main_frame.grid_columnconfigure(2, weight=2)
+
+    # Left column (now in first row)
+    left_frame = ctk.CTkFrame(main_frame)
+    left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+
+    # Middle column (now in first row)
+    middle_frame = ctk.CTkFrame(main_frame)
+    middle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+
+    # Right column (now in first row)
+    right_frame = ctk.CTkFrame(main_frame)
+    right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
+
+    # Create a frame for buttons in the second row
+    button_frame = ctk.CTkFrame(main_frame)
+    button_frame.grid(row=1, column=0, columnspan=3, pady=10, padx=10, sticky="ew")
+
+    # Create buttons with grid layout
+    upload_button1 = ctk.CTkButton(master=button_frame, text="Capture Image", command=show_premain_screen_2)
+    upload_button1.grid(row=0, column=0, padx=70)
+
+    upload_button2 = ctk.CTkButton(master=button_frame, text="Upload Sketch", command=show_premain_screen_2)
+    upload_button2.grid(row=0, column=1, padx=70)
+
+    upload_button3 = ctk.CTkButton(master=button_frame, text="Submit Image", command=show_premain_screen_2)
+    upload_button3.grid(row=0, column=2, padx=70)
+
+    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_premain_screen_2)
+    upload_button4.grid(row=0, column=3, padx=70)
+
+    # Configure button_frame columns to distribute space evenly
+    button_frame.grid_columnconfigure((0,1,2,3), weight=1)
+
+   
+    
 
 
 def clear_middle_frame_right():

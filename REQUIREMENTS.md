@@ -92,3 +92,48 @@ For more information about the face_recognition package, see `face_recognition <
 To run the project
 -------------------
 venv\Scripts\activate
+
+
+
+
+def handle_upload():
+        # Define allowed file types
+        filetypes = (
+            ('PNG files', '*.png'),
+            ('JPEG files', '*.jpg;*.jpeg'),
+            ('All files', '*.*')
+        )
+        
+        # Open file dialog
+        filename = filedialog.askopenfilename(
+            title='Upload Sketch',
+            initialdir='/',
+            filetypes=filetypes
+        )
+        
+        # Check if a file was selected
+        if filename:
+            # Get the file extension
+            _, file_extension = os.path.splitext(filename)
+            
+            # Validate file type
+            if file_extension.lower() in ['.png', '.jpg', '.jpeg']:
+                # Here you can add code to handle the uploaded file
+                print(f"File uploaded: {filename}")
+                # You might want to:
+                # 1. Copy the file to a specific directory
+                # 2. Process the image
+                # 3. Display the image
+                # 4. Move to the next screen with the uploaded image
+            else:
+                # Show error message if invalid file type
+                show_error_message("Invalid file type. Please select a PNG or JPG or JPEG file.")
+    
+    def show_error_message(message):
+        error_label = ctk.CTkLabel(master=frame, 
+                                 text=message, 
+                                 text_color="red")
+        error_label.pack(pady=12, padx=10)
+        # Remove error message after 3 seconds
+        frame.after(3000, error_label.destroy)
+    
