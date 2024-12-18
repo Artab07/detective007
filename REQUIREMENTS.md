@@ -96,7 +96,7 @@ venv\Scripts\activate
 
 
 
-def handle_upload():
+<!-- def handle_upload():
         # Define allowed file types
         filetypes = (
             ('PNG files', '*.png'),
@@ -136,4 +136,4 @@ def handle_upload():
         error_label.pack(pady=12, padx=10)
         # Remove error message after 3 seconds
         frame.after(3000, error_label.destroy)
-    
+     -->

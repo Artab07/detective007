@@ -1,0 +1,81 @@
+@startuml
+
+top to bottom direction
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam monochrome true
+
+package "1. Frontend Layer" {
+  component "Welcome Screen" as WS
+  component "Log In" as LI
+  component "Sign Up" as SU
+  component "Sketch Options" as SO
+  component "Create Sketch" as CS
+  component "Upload Sketch" as US
+  component "Choose Image From Device" as CIFD
+  component "Canvas for Drawing/Editing" as Canvas
+  component "Facial Feature Selection Panel" as Panel
+  component "Feature Manipulation Tools" as Tools
+  component "Save Created Sketch" as SCS
+  component "Submit Sketch" as SS
+  component "Image Upload Interface" as Upload
+}
+
+package "2. Core Processing Layer" {
+  component "Face Detection Module" as FD
+  note right of FD : Uses OpenCV (Haar Cascade, dlib)\nFace location detection
+
+  component "Face Recognition Module" as FR
+  note right of FR : Uses face_recognition library\nFacial landmark detection\nFace encoding/comparison
+}
+
+package "3. Data Management Layer" {
+  database "File System Storage" as Storage
+  note right of Storage : Facial features\nUser sketches\nUploaded images\nModel files
+}
+
+package "4. Model Layer" {
+  component "Pre-trained Models" as Models
+  note right of Models : shape_predictor_68_face_landmarks.dat\nshape_predictor_5_face_landmarks.dat\ndlib_face_recognition_resnet_model_v1.dat\nmmod_human_face_detector.dat
+}
+
+package "5. Integration Layer" {
+  component "DraggableFeature Class" as DragFeature
+  component "SketchCanvas Class" as SketchCanvas
+  component "Image Processing Pipeline" as Pipeline
+  note right of Pipeline : Format conversion\nSize/rotation handling\nTransparency management
+}
+
+package "6. Security Layer" {
+  component "User Authentication" as AuthLayer
+  component "Session Management" as Session
+  component "Access Control" as Access
+}
+
+[WS] --> [LI]
+[WS] --> [SU]
+[LI] --> [SO]
+[SU] --> [SO]
+[SO] --> [CS]
+[SO] --> [US]
+[CS] --> [Canvas]
+[Canvas] --> [Panel]
+[Panel] --> [Tools]
+[Tools] --> [SCS]
+[SCS] --> [SS]
+[US] --> [Upload]
+[Upload] --> [CIFD]
+[CIFD] --> [SS]
+
+[FD] --> [FR]
+[FR] --> [Storage]
+[Storage] --> [Models]
+
+[DragFeature] --> [SketchCanvas]
+[Pipeline] --> [DragFeature]
+
+[AuthLayer] --> [Session]
+[Session] --> [Access]
+
+@enduml
