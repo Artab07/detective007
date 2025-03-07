@@ -511,31 +511,30 @@ def show_premain_screen_2():
     button_frame.grid_columnconfigure((0,1,2,3), weight=1)
 
 def capture_image():
-    """Open the webcam and show the live feed inside left_frame"""
-    global cap, left_label, take_picture_btn, close_camera_btn, upload_button1, feed_active
+    """Open the webcam and show the live feed inside left_frame with buttons remaining."""
+    global cap, left_label, take_picture_btn, close_camera_btn, upload_button1, btn_frame
 
     cap = cv2.VideoCapture(0)
-    
+
     if not cap.isOpened():
         tkmb.showerror("Error", "Could not access the camera")
         return
-    
-    # Disable Capture button
+
+    # Disable "Capture Image" button
     upload_button1.configure(state="disabled")
 
-    # Clear left_frame before adding new widgets
+    # Clear only previous images, keep button frame
     for widget in left_frame.winfo_children():
-        widget.destroy()
+        if widget != btn_frame:  # Keep buttons intact
+            widget.destroy()
 
     # Label for displaying live feed
     left_label = ctk.CTkLabel(left_frame, text="")
     left_label.pack(fill="both", expand=True)
 
-    feed_active = True  # Track if live feed is active
-
     def show_frame():
         """Capture frames and update the label."""
-        if cap.isOpened() and feed_active:  # Ensure feed is active
+        if cap.isOpened():
             ret, frame = cap.read()
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -543,27 +542,27 @@ def capture_image():
                 imgtk = ImageTk.PhotoImage(image=img)
                 left_label.imgtk = imgtk
                 left_label.configure(image=imgtk)
-
-            # Continue updating the frame
             left_label.after(10, show_frame)
 
     show_frame()  # Start the live feed
 
-    # Frame for buttons inside left_frame
-    btn_frame = ctk.CTkFrame(left_frame)
-    btn_frame.pack(fill="x", pady=10)
+    # Ensure btn_frame exists only once
+    if "btn_frame" not in globals():
+        btn_frame = ctk.CTkFrame(left_frame)
+        btn_frame.pack(fill="x", pady=10)
 
-    # "Take Picture" button
-    take_picture_btn = ctk.CTkButton(btn_frame, text="Take Picture", command=take_picture)
-    take_picture_btn.pack(side="left", padx=5)
+        # "Take Picture" button
+        take_picture_btn = ctk.CTkButton(btn_frame, text="Take Picture", command=take_picture)
+        take_picture_btn.pack(side="left", padx=5)
 
-    # "Close Camera" button
-    close_camera_btn = ctk.CTkButton(btn_frame, text="Close Camera", command=close_camera)
-    close_camera_btn.pack(side="right", padx=5)
+        # "Close Camera" button
+        close_camera_btn = ctk.CTkButton(btn_frame, text="Close Camera", command=close_camera)
+        close_camera_btn.pack(side="right", padx=5)
+
 
 def take_picture():
-    """Capture a single frame, save it, and display it inside left_frame."""
-    global cap, left_label
+    """Capture a single frame, save it, and display it inside left_frame while keeping buttons visible."""
+    global cap, left_label, take_picture_btn, captured_label
 
     if cap is None or not cap.isOpened():
         tkmb.showerror("Error", "Camera is not active")
@@ -571,7 +570,7 @@ def take_picture():
 
     ret, frame = cap.read()
     if ret:
-        # Convert from BGR to RGB
+        # Convert BGR to RGB
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame_rgb)
 
@@ -580,15 +579,24 @@ def take_picture():
         filename = f"captured_image_{timestamp}.png"
         img.save(filename)
 
-        # Stop the live feed by destroying `left_label`
-        for widget in left_frame.winfo_children():
-            widget.destroy()
+        # Stop live feed and clear only the live feed label
+        if left_label:
+            left_label.pack_forget()
 
         # Display the captured image inside left_frame
         captured_img = ImageTk.PhotoImage(image=img)
-        captured_label = ctk.CTkLabel(left_frame, image=captured_img, text="")
-        captured_label.image = captured_img  # Keep reference
-        captured_label.pack(fill="both", expand=True)
+
+        # If an old captured image exists, replace it
+        if "captured_label" in globals():
+            captured_label.configure(image=captured_img)
+            captured_label.image = captured_img
+        else:
+            captured_label = ctk.CTkLabel(left_frame, image=captured_img, text="")
+            captured_label.image = captured_img  # Keep reference
+            captured_label.pack(fill="both", expand=True)
+
+        # Disable "Take Picture" button after capturing
+        take_picture_btn.configure(state="disabled")
 
         tkmb.showinfo("Success", f"Image saved as {filename}")
 
@@ -598,7 +606,7 @@ def take_picture():
 
 def close_camera():
     """Close the camera and restore left_frame to normal."""
-    global cap, left_label, upload_button1
+    global cap, left_label, upload_button1, take_picture_btn, btn_frame
 
     if cap:
         cap.release()
@@ -609,6 +617,9 @@ def close_camera():
 
     # Re-enable Capture Image button
     upload_button1.configure(state="normal")
+
+    # Reset Take Picture button for next use
+    take_picture_btn.configure(state="normal")
 
 
 
