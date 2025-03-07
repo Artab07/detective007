@@ -5,6 +5,8 @@ import tkinter.messagebox as tkmb
 import os
 from PIL import Image, ImageTk
 import math
+from datetime import datetime
+import cv2
 
 # Initialize global variables
 middle_frame_right = None
@@ -454,6 +456,7 @@ def show_premain_screen():
 
 
 def show_premain_screen_2():
+    global left_frame, upload_button1
     # Clear the current contents of the window
     for widget in root.winfo_children():
         widget.destroy()
@@ -489,16 +492,188 @@ def show_premain_screen_2():
     button_frame.grid(row=1, column=0, columnspan=3, pady=10, padx=10, sticky="ew")
 
     # Create buttons with grid layout
-    upload_button1 = ctk.CTkButton(master=button_frame, text="Capture Image", command=show_premain_screen_2)
+    # Import required modules at the top of the file
+
+    # Button definitions
+    upload_button1 = ctk.CTkButton(master=button_frame, text="Capture Image", command=capture_image)
     upload_button1.grid(row=0, column=0, padx=70)
 
-    upload_button2 = ctk.CTkButton(master=button_frame, text="Upload Sketch", command=show_premain_screen_2)
+    upload_button2 = ctk.CTkButton(master=button_frame, text="Upload Sketch", command=upload_sketch)
     upload_button2.grid(row=0, column=1, padx=70)
 
-    upload_button3 = ctk.CTkButton(master=button_frame, text="Submit Image", command=show_premain_screen_2)
+    upload_button3 = ctk.CTkButton(master=button_frame, text="Submit Image", command=submit_image)
     upload_button3.grid(row=0, column=2, padx=70)
 
-    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_premain_screen_2)
+    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_premain_screen)
+    upload_button4.grid(row=0, column=3, padx=70)
+
+    # Configure button_frame columns to distribute space evenly
+    button_frame.grid_columnconfigure((0,1,2,3), weight=1)
+
+def capture_image():
+    """Open the webcam and show the live feed inside left_frame"""
+    global cap, left_label, take_picture_btn, close_camera_btn, upload_button1, feed_active
+
+    cap = cv2.VideoCapture(0)
+    
+    if not cap.isOpened():
+        tkmb.showerror("Error", "Could not access the camera")
+        return
+    
+    # Disable Capture button
+    upload_button1.configure(state="disabled")
+
+    # Clear left_frame before adding new widgets
+    for widget in left_frame.winfo_children():
+        widget.destroy()
+
+    # Label for displaying live feed
+    left_label = ctk.CTkLabel(left_frame, text="")
+    left_label.pack(fill="both", expand=True)
+
+    feed_active = True  # Track if live feed is active
+
+    def show_frame():
+        """Capture frames and update the label."""
+        if cap.isOpened() and feed_active:  # Ensure feed is active
+            ret, frame = cap.read()
+            if ret:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(frame)
+                imgtk = ImageTk.PhotoImage(image=img)
+                left_label.imgtk = imgtk
+                left_label.configure(image=imgtk)
+
+            # Continue updating the frame
+            left_label.after(10, show_frame)
+
+    show_frame()  # Start the live feed
+
+    # Frame for buttons inside left_frame
+    btn_frame = ctk.CTkFrame(left_frame)
+    btn_frame.pack(fill="x", pady=10)
+
+    # "Take Picture" button
+    take_picture_btn = ctk.CTkButton(btn_frame, text="Take Picture", command=take_picture)
+    take_picture_btn.pack(side="left", padx=5)
+
+    # "Close Camera" button
+    close_camera_btn = ctk.CTkButton(btn_frame, text="Close Camera", command=close_camera)
+    close_camera_btn.pack(side="right", padx=5)
+
+def take_picture():
+    """Capture a single frame, save it, and display it inside left_frame."""
+    global cap, left_label
+
+    if cap is None or not cap.isOpened():
+        tkmb.showerror("Error", "Camera is not active")
+        return
+
+    ret, frame = cap.read()
+    if ret:
+        # Convert from BGR to RGB
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame_rgb)
+
+        # Save the captured image
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"captured_image_{timestamp}.png"
+        img.save(filename)
+
+        # Stop the live feed by destroying `left_label`
+        for widget in left_frame.winfo_children():
+            widget.destroy()
+
+        # Display the captured image inside left_frame
+        captured_img = ImageTk.PhotoImage(image=img)
+        captured_label = ctk.CTkLabel(left_frame, image=captured_img, text="")
+        captured_label.image = captured_img  # Keep reference
+        captured_label.pack(fill="both", expand=True)
+
+        tkmb.showinfo("Success", f"Image saved as {filename}")
+
+    else:
+        tkmb.showerror("Error", "Failed to capture image")
+
+
+def close_camera():
+    """Close the camera and restore left_frame to normal."""
+    global cap, left_label, upload_button1
+
+    if cap:
+        cap.release()
+
+    # Clear left_frame
+    for widget in left_frame.winfo_children():
+        widget.destroy()
+
+    # Re-enable Capture Image button
+    upload_button1.configure(state="normal")
+
+
+
+def upload_sketch():
+    """Handle sketch upload from file system"""
+    filetypes = (
+        ('Image files', '*.png;*.jpg;*.jpeg'),
+        ('All files', '*.*')
+    )
+    
+    filename = filedialog.askopenfilename(
+        title='Upload Sketch',
+        initialdir='/',
+        filetypes=filetypes
+    )
+    
+    if filename:
+        try:
+            # Process the uploaded image
+            process_image(filename)
+            tkmb.showinfo("Success", "Sketch uploaded successfully!")
+        except Exception as e:
+            tkmb.showerror("Error", f"Failed to upload sketch: {str(e)}")
+
+def submit_image():
+    """Handle image submission for processing"""
+    # Check if there's an active image to submit
+    if not hasattr(sketch_canvas, 'current_image'):
+        tkmb.showwarning("Warning", "No image to submit. Please capture or upload an image first.")
+        return
+        
+    try:
+        # Save the current state of the canvas
+        current_image = sketch_canvas.current_image
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_filename = f"submitted_image_{timestamp}.png"
+        current_image.save(save_filename)
+        
+        # Here you would add code to:
+        # 1. Process the image for face detection
+        faces, image = detect_faces(save_filename)
+        
+        # 2. Show results
+        if len(faces) > 0:
+            tkmb.showinfo("Success", f"Found {len(faces)} faces in the image.\nImage saved as {save_filename}")
+        else:
+            tkmb.showinfo("Result", "No faces detected in the image.")
+            
+    except Exception as e:
+        tkmb.showerror("Error", f"Failed to process image: {str(e)}")
+
+def process_image(image_path):
+    """Common function to process images from either capture or upload"""
+    try:
+        # Load and display the image on the canvas
+        image = Image.open(image_path)
+        sketch_canvas.clear_canvas()
+        sketch_canvas.current_image = image
+        feature = sketch_canvas.add_feature(image_path)
+        feature.bring_to_front()
+        
+    except Exception as e:
+        tkmb.showerror("Error", f"Failed to process image: {str(e)}")
+
+    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_premain_screen)
     upload_button4.grid(row=0, column=3, padx=70)
 
     # Configure button_frame columns to distribute space evenly
