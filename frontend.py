@@ -77,8 +77,8 @@ class DraggableFeature:
         # Rotate
         image = image.rotate(self.rotation, expand=True, resample=Image.BICUBIC)
         
-        # Convert to PhotoImage while preserving transparency
-        self.image = ImageTk.PhotoImage(image)
+        # Convert to CTkImage while preserving transparency
+        self.image = ctk.CTkImage(image, size=(image.width, image.height))
         
         # Update or create canvas image
         if hasattr(self, 'id'):
@@ -460,39 +460,55 @@ def show_premain_screen_2():
     # Clear the current contents of the window
     for widget in root.winfo_children():
         widget.destroy()
-
+    
     # Update the window title
     root.title("Detective 007 - Upload or take picture")
+
 
     # Create main frame
     main_frame = ctk.CTkFrame(root)
     main_frame.pack(pady=20, padx=20, fill="both", expand=True)
 
     # Configure rows and columns for resizing
-    main_frame.grid_rowconfigure(0, weight=5)  # First row (for frames) gets more weight
-    main_frame.grid_rowconfigure(1, weight=1)  # Second row (for buttons) gets less weight
+    main_frame.grid_columnconfigure(0, weight=1)  # 1st row Back arrow frame
+    main_frame.grid_rowconfigure(1, weight=5)  # 2nd row (for frames) gets more weight
+    main_frame.grid_rowconfigure(2, weight=1)  # 3rd row (for buttons) gets less weight
     main_frame.grid_columnconfigure(0, weight=5)
     main_frame.grid_columnconfigure(1, weight=5)
     main_frame.grid_columnconfigure(2, weight=2)
 
-    # Left column (now in first row)
+
+    # Create a frame for back button in the 1st row
+    back_arrow_frame = ctk.CTkFrame(main_frame)
+    back_arrow_frame.grid(row=0, column=0, columnspan=3, pady=10, padx=10, sticky="ew")
+
+    # Add back arrow button
+    back_button = ctk.CTkButton(back_arrow_frame, text="←", 
+                               command=show_login_screen, 
+                               width=50,
+                               fg_color="transparent",
+                               text_color="white",
+                               hover_color="#4283BD",
+                               text_color_disabled="gray")
+    back_button.pack(anchor="nw", padx=10, pady=10)
+
+    # Left column (now in 2nd row)
     left_frame = ctk.CTkFrame(main_frame)
-    left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+    left_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
-    # Middle column (now in first row)
+    # Middle column (now in 2nd row)
     middle_frame = ctk.CTkFrame(main_frame)
-    middle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+    middle_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
-    # Right column (now in first row)
+    # Right column (now in 2nd row)
     right_frame = ctk.CTkFrame(main_frame)
-    right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
+    right_frame.grid(row=1, column=2, padx=10, pady=10, sticky="nsew")
 
-    # Create a frame for buttons in the second row
+    # Create a frame for buttons in the 3rd row
     button_frame = ctk.CTkFrame(main_frame)
-    button_frame.grid(row=1, column=0, columnspan=3, pady=10, padx=10, sticky="ew")
+    button_frame.grid(row=2, column=0, columnspan=3, pady=10, padx=10, sticky="ew")
 
     # Create buttons with grid layout
-    # Import required modules at the top of the file
 
     # Button definitions
     upload_button1 = ctk.CTkButton(master=button_frame, text="Capture Image", command=capture_image)
@@ -523,10 +539,9 @@ def capture_image():
     # Disable "Capture Image" button
     upload_button1.configure(state="disabled")
 
-    # Clear only previous images, keep button frame
+    # Clear previous widgets inside left_frame (including old labels but NOT the button frame)
     for widget in left_frame.winfo_children():
-        if widget != btn_frame:  # Keep buttons intact
-            widget.destroy()
+        widget.destroy()
 
     # Label for displaying live feed
     left_label = ctk.CTkLabel(left_frame, text="")
@@ -539,25 +554,24 @@ def capture_image():
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 img = Image.fromarray(frame)
-                imgtk = ImageTk.PhotoImage(image=img)
-                left_label.imgtk = imgtk
-                left_label.configure(image=imgtk)
+                ctk_img = ctk.CTkImage(img, size=img.size)
+                left_label.configure(image=ctk_img)
+                left_label.image = ctk_img
             left_label.after(10, show_frame)
 
     show_frame()  # Start the live feed
 
-    # Ensure btn_frame exists only once
-    if "btn_frame" not in globals():
-        btn_frame = ctk.CTkFrame(left_frame)
-        btn_frame.pack(fill="x", pady=10)
+    # Recreate the button frame every time Capture Image is clicked
+    btn_frame = ctk.CTkFrame(left_frame)
+    btn_frame.pack(fill="x", pady=10)
 
-        # "Take Picture" button
-        take_picture_btn = ctk.CTkButton(btn_frame, text="Take Picture", command=take_picture)
-        take_picture_btn.pack(side="left", padx=5)
+    # "Take Picture" button
+    take_picture_btn = ctk.CTkButton(btn_frame, text="Take Picture", command=take_picture)
+    take_picture_btn.pack(side="left", padx=5)
 
-        # "Close Camera" button
-        close_camera_btn = ctk.CTkButton(btn_frame, text="Close Camera", command=close_camera)
-        close_camera_btn.pack(side="right", padx=5)
+    # "Close Camera" button
+    close_camera_btn = ctk.CTkButton(btn_frame, text="Close Camera", command=close_camera)
+    close_camera_btn.pack(side="right", padx=5)
 
 
 def take_picture():
@@ -611,15 +625,12 @@ def close_camera():
     if cap:
         cap.release()
 
-    # Clear left_frame
+    # Clear everything inside left_frame (including buttons)
     for widget in left_frame.winfo_children():
         widget.destroy()
 
-    # Re-enable Capture Image button
+    # Re-enable "Capture Image" button
     upload_button1.configure(state="normal")
-
-    # Reset Take Picture button for next use
-    take_picture_btn.configure(state="normal")
 
 
 
@@ -638,7 +649,45 @@ def upload_sketch():
     
     if filename:
         try:
-            # Process the uploaded image
+            # Clear previous widgets inside left_frame
+            for widget in left_frame.winfo_children():
+                widget.destroy()
+                
+            # Load and display the image
+            img = Image.open(filename)
+            
+            # Calculate size to fit in left_frame while maintaining aspect ratio
+            frame_width = left_frame.winfo_width()
+            frame_height = left_frame.winfo_height()
+            
+            # If frame dimensions are not yet available, use reasonable defaults
+            if frame_width <= 1 or frame_height <= 1:
+                frame_width = 300
+                frame_height = 400
+            
+            # Calculate scaling factor to fit image in frame
+            img_ratio = img.width / img.height
+            frame_ratio = frame_width / frame_height
+            
+            if img_ratio > frame_ratio:
+                new_width = frame_width
+                new_height = int(frame_width / img_ratio)
+            else:
+                new_height = frame_height
+                new_width = int(frame_height * img_ratio)
+            
+            # Resize image
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+            
+            # Convert to PhotoImage
+            photo = ImageTk.PhotoImage(img)
+            
+            # Create label and display image
+            img_label = ctk.CTkLabel(left_frame, image=photo, text="")
+            img_label.image = photo  # Keep a reference
+            img_label.pack(expand=True)
+            
+            # Process the image for the canvas
             process_image(filename)
             tkmb.showinfo("Success", "Sketch uploaded successfully!")
         except Exception as e:
