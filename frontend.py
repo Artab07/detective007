@@ -456,7 +456,7 @@ def show_premain_screen():
 
 
 def show_premain_screen_2():
-    global left_frame, upload_button1
+    global left_frame, upload_button1, button_frame
     # Clear the current contents of the window
     for widget in root.winfo_children():
         widget.destroy()
