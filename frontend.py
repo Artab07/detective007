@@ -7,10 +7,19 @@ from PIL import Image, ImageTk
 import math
 from datetime import datetime
 import cv2
+import logging
+from face_matcher import FaceMatcher
+from supabase_config import sign_in, sign_up, sign_out
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize global variables
 middle_frame_right = None
 sketch_canvas = None
+face_matcher = FaceMatcher()
+uploaded_image_path = None
 
 class DraggableFeature:
     def __init__(self, canvas, image_path, initial_position=(0, 0)):
@@ -636,6 +645,7 @@ def close_camera():
 
 def upload_sketch():
     """Handle sketch upload from file system"""
+    global uploaded_image_path
     filetypes = (
         ('Image files', '*.png;*.jpg;*.jpeg'),
         ('All files', '*.*')
@@ -679,69 +689,152 @@ def upload_sketch():
             # Resize image
             img = img.resize((new_width, new_height), Image.LANCZOS)
             
-            # Convert to PhotoImage
-            photo = ImageTk.PhotoImage(img)
+            # Convert to CTkImage
+            photo = ctk.CTkImage(img, size=(new_width, new_height))
             
             # Create label and display image
             img_label = ctk.CTkLabel(left_frame, image=photo, text="")
             img_label.image = photo  # Keep a reference
             img_label.pack(expand=True)
             
-            # Process the image for the canvas
-            process_image(filename)
-            tkmb.showinfo("Success", "Sketch uploaded successfully!")
+            # Store the uploaded image path for later submission
+            uploaded_image_path = filename
+            tkmb.showinfo("Success", "Sketch uploaded successfully! Now click Submit to search for matches.")
         except Exception as e:
             tkmb.showerror("Error", f"Failed to upload sketch: {str(e)}")
 
 def submit_image():
-    """Handle image submission for processing"""
-    # Check if there's an active image to submit
-    if not hasattr(sketch_canvas, 'current_image'):
-        tkmb.showwarning("Warning", "No image to submit. Please capture or upload an image first.")
+    """Handle image submission for processing and matching"""
+    global uploaded_image_path
+    if not uploaded_image_path:
+        tkmb.showwarning("Warning", "No image to submit. Please upload an image first.")
         return
-        
     try:
-        # Save the current state of the canvas
-        current_image = sketch_canvas.current_image
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_filename = f"submitted_image_{timestamp}.png"
-        current_image.save(save_filename)
-        
-        # Here you would add code to:
-        # 1. Process the image for face detection
-        faces, image = detect_faces(save_filename)
-        
-        # 2. Show results
-        if len(faces) > 0:
-            tkmb.showinfo("Success", f"Found {len(faces)} faces in the image.\nImage saved as {save_filename}")
-        else:
-            tkmb.showinfo("Result", "No faces detected in the image.")
-            
+        # Process the uploaded image for face matching
+        process_image(uploaded_image_path)
     except Exception as e:
         tkmb.showerror("Error", f"Failed to process image: {str(e)}")
 
 def process_image(image_path):
-    """Common function to process images from either capture or upload"""
+    """Process uploaded or captured image for face matching."""
     try:
-        # Load and display the image on the canvas
-        image = Image.open(image_path)
-        sketch_canvas.clear_canvas()
-        sketch_canvas.current_image = image
-        feature = sketch_canvas.add_feature(image_path)
-        feature.bring_to_front()
+        # Process the image using face matcher
+        face_encodings = face_matcher.process_sketch(sketch_path=image_path)
+        
+        if not face_encodings:
+            tkmb.showerror("Error", "No faces detected in the image. Please try another image.")
+            return
+        
+        # Search for matches in the database
+        matches = []
+        for encoding in face_encodings:
+            match_results = face_matcher.match_face(encoding)
+            matches.extend(match_results)
+        
+        if not matches:
+            tkmb.showinfo("No Matches", "No matching records found in the database.")
+            return
+        
+        # Sort matches by confidence
+        matches.sort(key=lambda x: x.get('confidence', 0), reverse=True)
+        
+        # Display matches
+        display_matches(matches)
         
     except Exception as e:
-        tkmb.showerror("Error", f"Failed to process image: {str(e)}")
+        logger.error(f"Error processing image: {str(e)}")
+        tkmb.showerror("Error", f"An error occurred while processing the image: {str(e)}")
 
-    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_premain_screen)
-    upload_button4.grid(row=0, column=3, padx=70)
-
-    # Configure button_frame columns to distribute space evenly
-    button_frame.grid_columnconfigure((0,1,2,3), weight=1)
-
-   
+def display_matches(matches):
+    """Display matching criminal records in a new window."""
+    matches_window = ctk.CTkToplevel()
+    matches_window.title("Matching Records")
+    matches_window.geometry("800x600")
     
+    # Create scrollable frame
+    scroll_frame = ctk.CTkScrollableFrame(matches_window)
+    scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    for match in matches:
+        # Create frame for each match
+        match_frame = ctk.CTkFrame(scroll_frame)
+        match_frame.pack(fill="x", padx=5, pady=5)
+        
+        # Display match information
+        info_text = f"""
+        Name: {match.get('name', 'Unknown')}
+        ID: {match.get('id', 'Unknown')}
+        Confidence: {match.get('confidence', 0):.2%}
+        Last Known Location: {match.get('last_known_location', 'Unknown')}
+        """
+        
+        ctk.CTkLabel(match_frame, text=info_text).pack(padx=10, pady=5)
+        
+        # Add view details button
+        ctk.CTkButton(
+            match_frame,
+            text="View Details",
+            command=lambda m=match: show_match_details(m)
+        ).pack(padx=10, pady=5)
 
+def show_match_details(match):
+    """Show detailed information about a matching record."""
+    details_window = ctk.CTkToplevel()
+    details_window.title(f"Criminal Record Details - {match.get('name', 'Unknown')}")
+    details_window.geometry("600x400")
+    
+    # Create scrollable frame for details
+    scroll_frame = ctk.CTkScrollableFrame(details_window)
+    scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    # Display all available information
+    details = [
+        ("Name", match.get('name', 'Unknown')),
+        ("ID", match.get('id', 'Unknown')),
+        ("Date of Birth", match.get('dob', 'Unknown')),
+        ("Height", match.get('height', 'Unknown')),
+        ("Weight", match.get('weight', 'Unknown')),
+        ("Eye Color", match.get('eye_color', 'Unknown')),
+        ("Hair Color", match.get('hair_color', 'Unknown')),
+        ("Last Known Location", match.get('last_known_location', 'Unknown')),
+        ("Last Known Date", match.get('last_known_date', 'Unknown')),
+        ("Crimes", match.get('crimes', 'Unknown')),
+        ("Status", match.get('status', 'Unknown')),
+        ("Notes", match.get('notes', 'No additional notes'))
+    ]
+    
+    for label, value in details:
+        frame = ctk.CTkFrame(scroll_frame)
+        frame.pack(fill="x", padx=5, pady=2)
+        
+        ctk.CTkLabel(frame, text=f"{label}:").pack(side="left", padx=10)
+        ctk.CTkLabel(frame, text=str(value)).pack(side="left", padx=10)
+
+def submit_sketch():
+    """Submit the created sketch for face matching."""
+    try:
+        # Save the current canvas state as an image
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        sketch_path = f"sketch_{timestamp}.png"
+        
+        # Get the canvas content
+        x = sketch_canvas.winfo_rootx()
+        y = sketch_canvas.winfo_rooty()
+        x1 = x + sketch_canvas.winfo_width()
+        y1 = y + sketch_canvas.winfo_height()
+        
+        # Capture the canvas area
+        ImageGrab.grab().crop((x, y, x1, y1)).save(sketch_path)
+        
+        # Process the sketch
+        process_image(sketch_path)
+        
+        # Clean up
+        os.remove(sketch_path)
+        
+    except Exception as e:
+        logger.error(f"Error submitting sketch: {str(e)}")
+        tkmb.showerror("Error", f"An error occurred while submitting the sketch: {str(e)}")
 
 def clear_middle_frame_right():
     global middle_frame_right
