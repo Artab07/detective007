@@ -671,36 +671,17 @@ def upload_sketch():
             # Load and display the image
             img = Image.open(filename)
             
-            # Calculate size to fit in left_frame while maintaining aspect ratio
-            frame_width = left_frame.winfo_width()
-            frame_height = left_frame.winfo_height()
-            
-            # If frame dimensions are not yet available, use reasonable defaults
-            if frame_width <= 1 or frame_height <= 1:
-                frame_width = 300
-                frame_height = 400
-            
-            # Calculate scaling factor to fit image in frame
-            img_ratio = img.width / img.height
-            frame_ratio = frame_width / frame_height
-            
-            if img_ratio > frame_ratio:
-                new_width = frame_width
-                new_height = int(frame_width / img_ratio)
-            else:
-                new_height = frame_height
-                new_width = int(frame_height * img_ratio)
-            
-            # Resize image
-            img = img.resize((new_width, new_height), Image.LANCZOS)
+            # Set a fixed preview size
+            preview_size = (250, 250)
+            img.thumbnail(preview_size, Image.LANCZOS)
             
             # Convert to CTkImage
-            photo = ctk.CTkImage(img, size=(new_width, new_height))
+            photo = ctk.CTkImage(img, size=preview_size)
             
-            # Create label and display image
+            # Create label and display image, center in frame
             img_label = ctk.CTkLabel(left_frame, image=photo, text="")
             img_label.image = photo  # Keep a reference
-            img_label.pack(expand=True)
+            img_label.pack(expand=True, pady=20)
             
             # Store the uploaded image path for later submission
             uploaded_image_path = filename
