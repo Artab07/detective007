@@ -276,21 +276,18 @@ class AddCriminalWindow(ctk.CTk):
             import numpy as np
             import cv2
             import os
+            from PIL import Image as PILImage
             results = []
             for path in all_image_paths:
                 try:
                     image = face_recognition.load_image_file(path)
-                    # Resize image to max 600x600 for robust detection
-                    from PIL import Image as PILImage
                     pil_img = PILImage.fromarray(image)
                     pil_img.thumbnail((600, 600), PILImage.LANCZOS)
                     image = np.array(pil_img)
-                    # Use CNN model for robust face detection
                     face_locations = face_recognition.face_locations(image, model='cnn')
                     print(f"[DEBUG] Detected {len(face_locations)} faces at: {face_locations} in {os.path.basename(path)}")
                     if len(face_locations) == 0:
                         PILImage.fromarray(image).save(f"debug_no_face_{os.path.basename(path)}.jpg")
-                    # Use CNN model for accurate encoding
                     encodings = face_recognition.face_encodings(image, face_locations, model='cnn')
                     if encodings:
                         results.append((True, encodings[0], path))
@@ -411,7 +408,6 @@ class AddCriminalWindow(ctk.CTk):
                     self.show_progress(f"Error: {str(e)}", color="#C0392B", determinate=True),
                     self.hide_progress(delay=1800)
                 ])
-
         import threading
         threading.Thread(target=background_work, daemon=True).start()
         

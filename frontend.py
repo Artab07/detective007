@@ -12,6 +12,7 @@ from face_matcher import FaceMatcher
 from supabase_config import sign_in, sign_up, sign_out
 import face_recognition
 import numpy as np
+import threading
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -744,51 +745,45 @@ def hide_progress(delay=0):
         _hide()
 
 def process_image(image_path):
-    """Process uploaded or captured image for face matching."""
-    try:
-        show_progress("Encoding face...", color="#4283BD")
-        # Process the image using face matcher
-        face_encodings = []
+    def background_work():
         try:
-            from PIL import Image as PILImage
-            image = face_recognition.load_image_file(image_path)
-            pil_img = PILImage.fromarray(image)
-            pil_img.thumbnail((600, 600), PILImage.LANCZOS)
-            image = np.array(pil_img)
-            face_locations = face_recognition.face_locations(image, model='cnn')
-            print(f"[DEBUG] Detected {len(face_locations)} faces at: {face_locations} in {os.path.basename(image_path)}")
-            if len(face_locations) == 0:
-                PILImage.fromarray(image).save(f"debug_no_face_{os.path.basename(image_path)}.jpg")
-            face_encodings = face_recognition.face_encodings(image, face_locations, model='cnn')
+            root.after(0, lambda: show_progress("Encoding face...", color="#4283BD"))
+            face_encodings = []
+            try:
+                from PIL import Image as PILImage
+                image = face_recognition.load_image_file(image_path)
+                pil_img = PILImage.fromarray(image)
+                pil_img.thumbnail((600, 600), PILImage.LANCZOS)
+                image = np.array(pil_img)
+                face_locations = face_recognition.face_locations(image, model='cnn')
+                print(f"[DEBUG] Detected {len(face_locations)} faces at: {face_locations} in {os.path.basename(image_path)}")
+                if len(face_locations) == 0:
+                    PILImage.fromarray(image).save(f"debug_no_face_{os.path.basename(image_path)}.jpg")
+                face_encodings = face_recognition.face_encodings(image, face_locations, model='cnn')
+            except Exception as e:
+                logger.error(f"Error in face detection/encoding: {str(e)}")
+            if not face_encodings:
+                root.after(0, lambda: [show_progress("No faces detected in the image.", color="#C0392B", determinate=True), hide_progress(delay=1800)])
+                return
+            root.after(0, lambda: show_progress("Searching database for matches...", color="#4283BD"))
+            best_match = None
+            best_distance = 1e9
+            for encoding in face_encodings:
+                print(f"[DEBUG] Encoding for matching (frontend): {encoding.tolist()}")
+                match_results = face_matcher.match_face(encoding, tolerance=0.75)
+                if match_results:
+                    match = match_results[0]
+                    if 'distance' in match and match['distance'] < best_distance:
+                        best_match = match
+                        best_distance = match['distance']
+            if not best_match:
+                root.after(0, lambda: [show_progress("No matching records found.", color="#C0392B", determinate=True), hide_progress(delay=1800)])
+                return
+            root.after(0, lambda: [show_progress("Match found! Displaying result...", color="#27AE60", determinate=True), root.after(1200, lambda: [hide_progress(), display_best_match_in_frames(best_match)])])
         except Exception as e:
-            logger.error(f"Error in face detection/encoding: {str(e)}")
-        if not face_encodings:
-            show_progress("No faces detected in the image.", color="#C0392B", determinate=True)
-            hide_progress(delay=1800)
-            return
-        show_progress("Searching database for matches...", color="#4283BD")
-        # Search for the best match in the database (use higher tolerance)
-        best_match = None
-        best_distance = 1e9
-        for encoding in face_encodings:
-            print(f"[DEBUG] Encoding for matching (frontend): {encoding.tolist()}")
-            match_results = face_matcher.match_face(encoding, tolerance=0.75)
-            if match_results:
-                match = match_results[0]
-                if 'distance' in match and match['distance'] < best_distance:
-                    best_match = match
-                    best_distance = match['distance']
-        if not best_match:
-            show_progress("No matching records found.", color="#C0392B", determinate=True)
-            hide_progress(delay=1800)
-            return
-        # Show only the best match and its score in the right and middle frames
-        show_progress("Match found! Displaying result...", color="#27AE60", determinate=True)
-        root.after(1200, lambda: [hide_progress(), display_best_match_in_frames(best_match)])
-    except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
-        show_progress(f"Error: {str(e)}", color="#C0392B", determinate=True)
-        hide_progress(delay=1800)
+            logger.error(f"Error processing image: {str(e)}")
+            root.after(0, lambda: [show_progress(f"Error: {str(e)}", color="#C0392B", determinate=True), hide_progress(delay=1800)])
+    threading.Thread(target=background_work, daemon=True).start()
 
 # Helper to clear a frame
 def clear_frame(frame):
