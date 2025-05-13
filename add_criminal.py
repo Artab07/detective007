@@ -280,8 +280,16 @@ class AddCriminalWindow(ctk.CTk):
             for path in all_image_paths:
                 try:
                     image = face_recognition.load_image_file(path)
-                    # Use HOG model for fast face detection
-                    face_locations = face_recognition.face_locations(image, model='hog')
+                    # Resize image to max 600x600 for robust detection
+                    from PIL import Image as PILImage
+                    pil_img = PILImage.fromarray(image)
+                    pil_img.thumbnail((600, 600), PILImage.LANCZOS)
+                    image = np.array(pil_img)
+                    # Use CNN model for robust face detection
+                    face_locations = face_recognition.face_locations(image, model='cnn')
+                    print(f"[DEBUG] Detected {len(face_locations)} faces at: {face_locations} in {os.path.basename(path)}")
+                    if len(face_locations) == 0:
+                        PILImage.fromarray(image).save(f"debug_no_face_{os.path.basename(path)}.jpg")
                     # Use CNN model for accurate encoding
                     encodings = face_recognition.face_encodings(image, face_locations, model='cnn')
                     if encodings:
@@ -328,6 +336,7 @@ class AddCriminalWindow(ctk.CTk):
                 if response and response.data:
                     criminal_id = response.data[0]['id']
                     for encoding, path in encodings:
+                        print(f"[DEBUG] Encoding for DB (add_criminal): {encoding.tolist()}")
                         encoding_bytes = np.array(encoding, dtype=np.float64).tobytes()
                         b64 = base64.b64encode(encoding_bytes).decode('utf-8')
                         print("Base64 encoding length:", len(b64), "First 100 chars:", b64[:100])

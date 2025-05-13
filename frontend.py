@@ -10,6 +10,8 @@ import cv2
 import logging
 from face_matcher import FaceMatcher
 from supabase_config import sign_in, sign_up, sign_out
+import face_recognition
+import numpy as np
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -746,7 +748,20 @@ def process_image(image_path):
     try:
         show_progress("Encoding face...", color="#4283BD")
         # Process the image using face matcher
-        face_encodings = face_matcher.process_sketch(sketch_path=image_path)
+        face_encodings = []
+        try:
+            from PIL import Image as PILImage
+            image = face_recognition.load_image_file(image_path)
+            pil_img = PILImage.fromarray(image)
+            pil_img.thumbnail((600, 600), PILImage.LANCZOS)
+            image = np.array(pil_img)
+            face_locations = face_recognition.face_locations(image, model='cnn')
+            print(f"[DEBUG] Detected {len(face_locations)} faces at: {face_locations} in {os.path.basename(image_path)}")
+            if len(face_locations) == 0:
+                PILImage.fromarray(image).save(f"debug_no_face_{os.path.basename(image_path)}.jpg")
+            face_encodings = face_recognition.face_encodings(image, face_locations, model='cnn')
+        except Exception as e:
+            logger.error(f"Error in face detection/encoding: {str(e)}")
         if not face_encodings:
             show_progress("No faces detected in the image.", color="#C0392B", determinate=True)
             hide_progress(delay=1800)
@@ -756,6 +771,7 @@ def process_image(image_path):
         best_match = None
         best_distance = 1e9
         for encoding in face_encodings:
+            print(f"[DEBUG] Encoding for matching (frontend): {encoding.tolist()}")
             match_results = face_matcher.match_face(encoding, tolerance=0.75)
             if match_results:
                 match = match_results[0]
