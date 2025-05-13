@@ -36,16 +36,21 @@ def sign_up(email, password, username):
                 }
             }
         })
-        
-        # Add user profile to profiles table
-        if response.user:
+        logger.info(f"Supabase sign_up response: {response}")
+        # Check for error in response
+        if hasattr(response, 'error') and response.error:
+            logger.error(f"Supabase sign_up error: {response.error}")
+            raise Exception(response.error)
+        if hasattr(response, 'user') and response.user:
             supabase.table('profiles').insert({
                 'id': response.user.id,
                 'username': username,
                 'email': email
             }).execute()
-            
-        return response
+            return response
+        else:
+            logger.error(f"Sign up failed, response: {response}")
+            raise Exception("Sign up failed. Please check your email and password.")
     except Exception as e:
         logger.error(f"Error during signup: {str(e)}")
         raise

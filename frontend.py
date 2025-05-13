@@ -9,7 +9,7 @@ from datetime import datetime
 import cv2
 import logging
 from face_matcher import FaceMatcher
-from supabase_config import sign_in, sign_up, sign_out
+from supabase_config import sign_in, sign_up, sign_out, get_current_user
 import face_recognition
 import numpy as np
 import threading
@@ -29,6 +29,9 @@ uploaded_image_path = None
 progress_overlay = None
 progress_label = None
 progress_bar = None
+
+global current_user
+current_user = None
 
 class DraggableFeature:
     def __init__(self, canvas, image_path, initial_position=(0, 0)):
@@ -376,23 +379,22 @@ def show_login_screen():
     label = ctk.CTkLabel(master=frame, text="Login System", font=("Roboto", 24))
     label.pack(pady=20, padx=10)
 
-    global user_entry, user_pass, role_var
-    # Add role dropdown ABOVE username field
+    global user_email_entry, user_pass, role_var
+    # Add role dropdown ABOVE email field
     role_var = tk.StringVar(value="Public")
     role_label = ctk.CTkLabel(master=frame, text="Select Role:")
     role_label.pack(pady=(10, 0))
     role_dropdown = ctk.CTkOptionMenu(master=frame, variable=role_var, values=["Admin", "Public"])
     role_dropdown.pack(pady=8)
 
-    user_entry = ctk.CTkEntry(master=frame, placeholder_text="Username")
-    user_entry.pack(pady=12, padx=10)
+    user_email_entry = ctk.CTkEntry(master=frame, placeholder_text="Email")
+    user_email_entry.pack(pady=12, padx=10)
 
     user_pass = ctk.CTkEntry(master=frame, placeholder_text="Password", show="*")
     user_pass.pack(pady=12, padx=10)
 
-    button = ctk.CTkButton(master=frame, text="Login", command=show_premain_screen)
+    button = ctk.CTkButton(master=frame, text="Login", command=handle_login)
     button.pack(pady=12, padx=10)
-
     checkbox = ctk.CTkCheckBox(master=frame, text="Remember Me")
     checkbox.pack(pady=12, padx=10)
 
@@ -413,44 +415,76 @@ def show_signup_screen():
                             text_color="white",
                             hover_color="#4283BD",
                             text_color_disabled="gray")
-
     back_button.pack(anchor="nw", padx=10, pady=10)
     
-    # Recreate the login screen
+    # Recreate the sign up screen
     label = ctk.CTkLabel(master=frame, text="Sign Up to Investigate", font=("Roboto", 24))
     label.pack(pady=20, padx=10)
 
-    global user_entry, user_pass
-    username_label = ctk.CTkLabel(master=frame, text="Enter username", font=("Roboto", 14))
-    username_label.pack(pady=5, padx=10)
-    user_entry = ctk.CTkEntry(master=frame, placeholder_text="Username")
-    user_entry.pack(pady=12, padx=10)
+    global signup_email_entry, signup_pass_entry, signup_pass_confirm_entry
+    signup_email_entry = ctk.CTkEntry(master=frame, placeholder_text="Email")
+    signup_email_entry.pack(pady=12, padx=10)
 
-    email_entry = ctk.CTkEntry(master=frame, placeholder_text="example@email.com")
-    email_entry.pack(pady=12, padx=10)
+    signup_pass_entry = ctk.CTkEntry(master=frame, placeholder_text="Password", show="*")
+    signup_pass_entry.pack(pady=12, padx=10)
 
-    user_pass = ctk.CTkEntry(master=frame, placeholder_text="Password", show="*")
-    user_pass.pack(pady=12, padx=10)
+    signup_pass_confirm_entry = ctk.CTkEntry(master=frame, placeholder_text="Re-enter Password", show="*")
+    signup_pass_confirm_entry.pack(pady=12, padx=10)
 
-    pass_confirm = ctk.CTkEntry(master=frame, placeholder_text="Re-enter Password", show="*")
-    pass_confirm.pack(pady=12, padx=10)
-
-    button = ctk.CTkButton(master=frame, text="Sign Up", command=show_login_screen)
+    button = ctk.CTkButton(master=frame, text="Sign Up", command=handle_signup)
     button.pack(pady=12, padx=10)
+    note = ctk.CTkLabel(master=frame, text="After signing up, check your email for a confirmation link.\nYou may see a browser error—this is normal. Just return to the app and log in.", font=("Roboto", 10), text_color="gray")
+    note.pack(pady=5)
 
-def login():
-    username = "artabmaji"
-    password = "123456"
-    
-    if user_entry.get() == username and user_pass.get() == password:
-        show_main_screen()
-    elif user_entry.get() == username and user_pass.get() != password:
-        tkmb.showwarning(title='Wrong password', message='Please check your password')
-    elif user_entry.get() != username and user_pass.get() == password:
-        tkmb.showwarning(title='Wrong username', message='Please check your username')
-    else:
-        tkmb.showerror(title="Login Failed", message="Invalid Username and password")
+def handle_login():
+    global current_user
+    email = user_email_entry.get()
+    password = user_pass.get()
+    try:
+        response = sign_in(email, password)
+        if hasattr(response, 'error') and response.error:
+            if 'Email not confirmed' in str(response.error):
+                tkmb.showerror("Login Failed", "Please confirm your email before logging in. Check your inbox and spam folder.")
+            else:
+                tkmb.showerror("Login Failed", f"Error: {response.error}")
+            return
+        if hasattr(response, 'user') and response.user:
+            current_user = response.user
+            show_premain_screen()
+        else:
+            tkmb.showerror("Login Failed", "Invalid email or password.")
+    except Exception as e:
+        tkmb.showerror("Login Failed", f"Error: {str(e)}")
 
+def handle_signup():
+    email = signup_email_entry.get()
+    password = signup_pass_entry.get()
+    confirm = signup_pass_confirm_entry.get()
+    if not email or not password or not confirm:
+        tkmb.showerror("Error", "All fields are required.")
+        return
+    if password != confirm:
+        tkmb.showerror("Error", "Passwords do not match.")
+        return
+    try:
+        response = sign_up(email, password, None)
+        # Check for error in response
+        if hasattr(response, 'error') and response.error:
+            if 'User already registered' in str(response.error):
+                tkmb.showerror("Sign Up Failed", "This email is already registered. Please log in or use a different email.")
+            else:
+                tkmb.showerror("Sign Up Failed", f"Error: {response.error}")
+            return
+        if hasattr(response, 'user') and response.user:
+            tkmb.showinfo(
+                "Success",
+                "Sign up successful! Please check your email to confirm your account before logging in.\n\nYou may see a 'site can't be reached' error—this is normal. After confirming, return to the app and log in."
+            )
+            show_login_screen()
+        else:
+            tkmb.showerror("Sign Up Failed", "Could not create account. Try again.")
+    except Exception as e:
+        tkmb.showerror("Sign Up Failed", f"Error: {str(e)}")
 
 def show_premain_screen():
     # Clear the current contents of the window
