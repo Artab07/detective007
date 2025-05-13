@@ -537,7 +537,7 @@ def show_premain_screen_2():
     upload_button3 = ctk.CTkButton(master=button_frame, text="Submit Image", command=submit_image)
     upload_button3.grid(row=0, column=2, padx=70)
 
-    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_premain_screen)
+    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_login_screen)
     upload_button4.grid(row=0, column=3, padx=70)
 
     # Configure button_frame columns to distribute space evenly
@@ -745,9 +745,9 @@ def hide_progress(delay=0):
         _hide()
 
 def process_image(image_path):
+    show_progress("Encoding face...", color="#4283BD")  # Show loader immediately
     def background_work():
         try:
-            root.after(0, lambda: show_progress("Encoding face...", color="#4283BD"))
             face_encodings = []
             try:
                 from PIL import Image as PILImage

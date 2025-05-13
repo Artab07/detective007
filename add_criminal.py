@@ -267,7 +267,7 @@ class AddCriminalWindow(ctk.CTk):
     def submit_record(self):
         self.status_label.configure(text="Processing face encodings...")
         self.set_form_state("disabled")
-        self.show_progress("Encoding face(s)...", color="#4283BD")
+        self.show_progress("Encoding face(s)...", color="#4283BD")  # Show loader immediately
         all_image_paths = [self.face_image_path] if self.face_image_path else []
         all_image_paths += self.additional_images
 
