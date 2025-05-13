@@ -13,6 +13,7 @@ from supabase_config import sign_in, sign_up, sign_out
 import face_recognition
 import numpy as np
 import threading
+from PIL import ImageGrab
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -94,8 +95,13 @@ class DraggableFeature:
         # Rotate
         image = image.rotate(self.rotation, expand=True, resample=Image.BICUBIC)
         
-        # Convert to CTkImage while preserving transparency
-        self.image = ctk.CTkImage(image, size=(image.width, image.height))
+        # Use ImageTk.PhotoImage for Tkinter Canvas
+        self.image = ImageTk.PhotoImage(image)
+        
+        # --- Keep a reference to all images to prevent garbage collection ---
+        if not hasattr(self, '_image_refs'):
+            self._image_refs = []
+        self._image_refs.append(self.image)
         
         # Update or create canvas image
         if hasattr(self, 'id'):
@@ -364,14 +370,20 @@ def show_login_screen():
                             text_color="white",
                             hover_color="#4283BD",
                             text_color_disabled="gray")
-
     back_button.pack(anchor="nw", padx=10, pady=10)
     
     # Recreate the login screen
     label = ctk.CTkLabel(master=frame, text="Login System", font=("Roboto", 24))
     label.pack(pady=20, padx=10)
 
-    global user_entry, user_pass
+    global user_entry, user_pass, role_var
+    # Add role dropdown ABOVE username field
+    role_var = tk.StringVar(value="Public")
+    role_label = ctk.CTkLabel(master=frame, text="Select Role:")
+    role_label.pack(pady=(10, 0))
+    role_dropdown = ctk.CTkOptionMenu(master=frame, variable=role_var, values=["Admin", "Public"])
+    role_dropdown.pack(pady=8)
+
     user_entry = ctk.CTkEntry(master=frame, placeholder_text="Username")
     user_entry.pack(pady=12, padx=10)
 
@@ -465,15 +477,21 @@ def show_premain_screen():
     label = ctk.CTkLabel(master=frame, text="Create Sketch / Upload Sketch", font=("Roboto", 24))
     label.pack(pady=20, padx=10)
     
+    # Show buttons based on role
+    global role_var
+    role = role_var.get() if 'role_var' in globals() else "Public"
     button = ctk.CTkButton(master=frame, text="Create Sketch", command=show_main_screen)
     button.pack(pady=12, padx=10)
-    
     upload_button = ctk.CTkButton(master=frame, text="Upload Sketch", command=show_premain_screen_2)
     upload_button.pack(pady=12, padx=10)
+    if role == "Admin":
+        # Add Criminal Record button for Admin
+        add_criminal_btn = ctk.CTkButton(master=frame, text="Add Criminal Record", fg_color="#4283BD", hover_color="#2B3C43", command=open_add_criminal_form)
+        add_criminal_btn.pack(pady=12, padx=10)
 
 
-def show_premain_screen_2():
-    global left_frame, middle_frame, right_frame, upload_button1, button_frame
+def show_premain_screen_2(preview_path=None):
+    global left_frame, middle_frame, right_frame, upload_button1, button_frame, uploaded_image_path
     # Clear the current contents of the window
     for widget in root.winfo_children():
         widget.destroy()
@@ -507,7 +525,18 @@ def show_premain_screen_2():
                                text_color="white",
                                hover_color="#4283BD",
                                text_color_disabled="gray")
-    back_button.pack(anchor="nw", padx=10, pady=10)
+    back_button.pack(side="left", padx=10, pady=10)
+
+    # Add Clear button at the right corner of the top frame
+    def clear_upload_screen_fields():
+        global uploaded_image_path
+        # Clear left_frame (image preview)
+        for widget in left_frame.winfo_children():
+            widget.destroy()
+        uploaded_image_path = None
+        # Optionally clear other fields if needed
+    clear_btn = ctk.CTkButton(back_arrow_frame, text="Clear", command=clear_upload_screen_fields, fg_color="#56666F", hover_color="#314048")
+    clear_btn.pack(side="right", padx=10, pady=10)
 
     # Left column (now in 2nd row)
     left_frame = ctk.CTkFrame(main_frame)
@@ -537,11 +566,24 @@ def show_premain_screen_2():
     upload_button3 = ctk.CTkButton(master=button_frame, text="Submit Image", command=submit_image)
     upload_button3.grid(row=0, column=2, padx=70)
 
-    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_login_screen)
+    upload_button4 = ctk.CTkButton(master=button_frame, text="Logout", command=show_login_screen, fg_color="#C0392B", hover_color="#9D0B28")
     upload_button4.grid(row=0, column=3, padx=70)
 
     # Configure button_frame columns to distribute space evenly
     button_frame.grid_columnconfigure((0,1,2,3), weight=1)
+
+    # Preview the sketch if a path is provided
+    if preview_path and os.path.exists(preview_path):
+        from PIL import Image
+        img = Image.open(preview_path)
+        preview_size = (250, 250)
+        img.thumbnail(preview_size, Image.LANCZOS)
+        photo = ctk.CTkImage(img, size=preview_size)
+        img_label = ctk.CTkLabel(left_frame, image=photo, text="")
+        img_label.image = photo
+        img_label.pack(expand=True, pady=20)
+        uploaded_image_path = preview_path  # Set for submit_image
+        print(f"[DEBUG] Previewing and setting uploaded_image_path: {uploaded_image_path}")
 
 def capture_image():
     """Open the webcam and show the live feed inside left_frame with buttons remaining."""
@@ -579,16 +621,22 @@ def capture_image():
     show_frame()  # Start the live feed
 
     # Recreate the button frame every time Capture Image is clicked
-    btn_frame = ctk.CTkFrame(left_frame)
-    btn_frame.pack(fill="x", pady=10)
+    btn_frame = ctk.CTkFrame(left_frame, fg_color="#23272E", corner_radius=16)
+    btn_frame.pack(side="bottom", fill="x", pady=20, padx=20)
 
-    # "Take Picture" button
-    take_picture_btn = ctk.CTkButton(btn_frame, text="Take Picture", command=take_picture)
-    take_picture_btn.pack(side="left", padx=5)
+    # "Take Picture" button without emoji
+    take_picture_btn = ctk.CTkButton(
+        btn_frame, text="Take Picture", command=take_picture,
+        fg_color="#4283BD", hover_color="#2B3C43", corner_radius=12, font=("Roboto", 14, "bold"), width=140, height=40
+    )
+    take_picture_btn.pack(side="left", padx=20, pady=10)
 
-    # "Close Camera" button
-    close_camera_btn = ctk.CTkButton(btn_frame, text="Close Camera", command=close_camera)
-    close_camera_btn.pack(side="right", padx=5)
+    # "Close Camera" button without emoji
+    close_camera_btn = ctk.CTkButton(
+        btn_frame, text="Close Camera", command=close_camera,
+        fg_color="#C0392B", hover_color="#9D0B28", corner_radius=12, font=("Roboto", 14, "bold"), width=140, height=40
+    )
+    close_camera_btn.pack(side="right", padx=20, pady=10)
 
 
 def take_picture():
@@ -637,7 +685,7 @@ def take_picture():
 
 def close_camera():
     """Close the camera and restore left_frame to normal."""
-    global cap, left_label, upload_button1, take_picture_btn, btn_frame
+    global cap, left_label, upload_button1, take_picture_btn, btn_frame, uploaded_image_path
 
     if cap:
         cap.release()
@@ -648,6 +696,21 @@ def close_camera():
 
     # Re-enable "Capture Image" button
     upload_button1.configure(state="normal")
+
+    # Restore preview image if available, else show placeholder
+    if uploaded_image_path and os.path.exists(uploaded_image_path):
+        from PIL import Image
+        img = Image.open(uploaded_image_path)
+        preview_size = (250, 250)
+        img.thumbnail(preview_size, Image.LANCZOS)
+        photo = ctk.CTkImage(img, size=preview_size)
+        img_label = ctk.CTkLabel(left_frame, image=photo, text="")
+        img_label.image = photo
+        img_label.pack(expand=True, pady=20)
+    else:
+        # Show a placeholder to maintain frame size
+        placeholder = ctk.CTkLabel(left_frame, text="No image preview", width=250, height=250)
+        placeholder.pack(expand=True, pady=20)
 
 
 
@@ -693,13 +756,12 @@ def upload_sketch():
             tkmb.showerror("Error", f"Failed to upload sketch: {str(e)}")
 
 def submit_image():
-    """Handle image submission for processing and matching"""
     global uploaded_image_path
+    print(f"[DEBUG] Submitting image: {uploaded_image_path}")
     if not uploaded_image_path:
         tkmb.showwarning("Warning", "No image to submit. Please upload an image first.")
         return
     try:
-        # Process the uploaded image for face matching
         process_image(uploaded_image_path)
     except Exception as e:
         tkmb.showerror("Error", f"Failed to process image: {str(e)}")
@@ -845,27 +907,22 @@ def display_best_match_in_frames(match):
         ctk.CTkLabel(middle_frame, text="Image not available").pack(pady=20)
 
 def submit_sketch():
-    """Submit the created sketch for face matching."""
     try:
-        # Save the current canvas state as an image
+        import os
+        from datetime import datetime
+        from PIL import ImageGrab
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        sketch_path = f"sketch_{timestamp}.png"
-        
-        # Get the canvas content
+        downloads_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        if not os.path.exists(downloads_dir):
+            downloads_dir = "."
+        sketch_path = os.path.join(downloads_dir, f"sketch_{timestamp}.png")
         x = sketch_canvas.winfo_rootx()
         y = sketch_canvas.winfo_rooty()
         x1 = x + sketch_canvas.winfo_width()
         y1 = y + sketch_canvas.winfo_height()
-        
-        # Capture the canvas area
         ImageGrab.grab().crop((x, y, x1, y1)).save(sketch_path)
-        
-        # Process the sketch
-        process_image(sketch_path)
-        
-        # Clean up
-        os.remove(sketch_path)
-        
+        print(f"[DEBUG] Sketch saved to: {sketch_path}")
+        show_premain_screen_2(preview_path=sketch_path)
     except Exception as e:
         logger.error(f"Error submitting sketch: {str(e)}")
         tkmb.showerror("Error", f"An error occurred while submitting the sketch: {str(e)}")
@@ -947,9 +1004,7 @@ def show_main_screen():
                              fg_color="#56666F", hover_color="#314048")
     clear_btn.pack(side="left", padx=5, pady=5)
     
-    def submit_sketch():
-        print("Sketch submitted")
-    
+    # Use the global submit_sketch function
     submit_btn = ctk.CTkButton(bottom_frame, text="Submit Sketch", command=submit_sketch, 
                               fg_color="#522377", hover_color="#36195B")
     submit_btn.pack(side="right", padx=5, pady=5)
@@ -1040,6 +1095,12 @@ def display_image_matrix(image_files, image_folder, element):
     
     for i in range(max_cols):
         scrollable_frame.grid_columnconfigure(i, weight=1)
+
+# Dummy function for opening add_criminal form
+
+def open_add_criminal_form():
+    import subprocess
+    subprocess.Popen(["python", "add_criminal.py"])  # Or replace with your actual form logic
 
 # Start with the welcome screen
 show_welcome_screen()

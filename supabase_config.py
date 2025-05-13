@@ -192,3 +192,25 @@ def get_user_search_history(user_id):
     except Exception as e:
         logger.error(f"Error getting search history: {str(e)}")
         raise
+
+def get_current_user():
+    """Return the current authenticated user (or None if not logged in)."""
+    try:
+        session = supabase.auth.get_session()
+        if session and session['user']:
+            return session['user']
+        return None
+    except Exception as e:
+        logger.error(f"Error getting current user: {str(e)}")
+        return None
+
+def get_user_role(user_id):
+    """Fetch the user's role from the profiles table."""
+    try:
+        response = supabase.table('profiles').select('role').eq('id', user_id).single().execute()
+        if response.data and 'role' in response.data:
+            return response.data['role']
+        return None
+    except Exception as e:
+        logger.error(f"Error getting user role: {str(e)}")
+        return None
