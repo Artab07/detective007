@@ -9,11 +9,12 @@ from datetime import datetime
 import cv2
 import logging
 from face_matcher import FaceMatcher
-from supabase_config import sign_in, sign_up, sign_out, get_current_user
+from supabase_config import sign_in, sign_up, sign_out, get_current_user, add_criminal_record
 import face_recognition
 import numpy as np
 import threading
 from PIL import ImageGrab
+import base64
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -520,7 +521,7 @@ def show_premain_screen():
     upload_button.pack(pady=12, padx=10)
     if role == "Admin":
         # Add Criminal Record button for Admin
-        add_criminal_btn = ctk.CTkButton(master=frame, text="Add Criminal Record", fg_color="#4283BD", hover_color="#2B3C43", command=open_add_criminal_form)
+        add_criminal_btn = ctk.CTkButton(master=frame, text="Add Criminal Record", fg_color="#4283BD", hover_color="#2B3C43", command=show_add_criminal_screen)
         add_criminal_btn.pack(pady=12, padx=10)
 
 
@@ -1130,11 +1131,277 @@ def display_image_matrix(image_files, image_folder, element):
     for i in range(max_cols):
         scrollable_frame.grid_columnconfigure(i, weight=1)
 
-# Dummy function for opening add_criminal form
+def show_add_criminal_screen():
+    # Clear the current contents of the window
+    for widget in root.winfo_children():
+        widget.destroy()
 
-def open_add_criminal_form():
-    import subprocess
-    subprocess.Popen(["python", "add_criminal.py"])  # Or replace with your actual form logic
+    root.title("Add Criminal Record")
+    main_frame = ctk.CTkFrame(root)
+    main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+    scrollable_frame = ctk.CTkScrollableFrame(main_frame)
+    scrollable_frame.pack(fill="both", expand=True)
+
+    # --- Personal Information ---
+    personal_frame = ctk.CTkFrame(scrollable_frame)
+    personal_frame.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(personal_frame, text="Personal Information", font=("Roboto", 16, "bold")).pack(pady=5)
+    ctk.CTkLabel(personal_frame, text="Full Name:").pack(anchor="w", padx=10)
+    name_entry = ctk.CTkEntry(personal_frame)
+    name_entry.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(personal_frame, text="Date of Birth (YYYY-MM-DD):").pack(anchor="w", padx=10)
+    dob_entry = ctk.CTkEntry(personal_frame)
+    dob_entry.pack(fill="x", padx=10, pady=5)
+
+    # --- Physical Description ---
+    physical_frame = ctk.CTkFrame(scrollable_frame)
+    physical_frame.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(physical_frame, text="Physical Description", font=("Roboto", 16, "bold")).pack(pady=5)
+    ctk.CTkLabel(physical_frame, text="Height (cm):").pack(anchor="w", padx=10)
+    height_entry = ctk.CTkEntry(physical_frame)
+    height_entry.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(physical_frame, text="Weight (kg):").pack(anchor="w", padx=10)
+    weight_entry = ctk.CTkEntry(physical_frame)
+    weight_entry.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(physical_frame, text="Eye Color:").pack(anchor="w", padx=10)
+    eye_color_entry = ctk.CTkEntry(physical_frame)
+    eye_color_entry.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(physical_frame, text="Hair Color:").pack(anchor="w", padx=10)
+    hair_color_entry = ctk.CTkEntry(physical_frame)
+    hair_color_entry.pack(fill="x", padx=10, pady=5)
+
+    # --- Criminal Information ---
+    criminal_frame = ctk.CTkFrame(scrollable_frame)
+    criminal_frame.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(criminal_frame, text="Criminal Information", font=("Roboto", 16, "bold")).pack(pady=5)
+    ctk.CTkLabel(criminal_frame, text="Crimes (comma separated):").pack(anchor="w", padx=10)
+    crimes_entry = ctk.CTkEntry(criminal_frame)
+    crimes_entry.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(criminal_frame, text="Status:").pack(anchor="w", padx=10)
+    status_entry = ctk.CTkEntry(criminal_frame)
+    status_entry.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(criminal_frame, text="Last Known Location:").pack(anchor="w", padx=10)
+    location_entry = ctk.CTkEntry(criminal_frame)
+    location_entry.pack(fill="x", padx=10, pady=5)
+    ctk.CTkLabel(criminal_frame, text="Additional Notes:").pack(anchor="w", padx=10)
+    notes_entry = ctk.CTkTextbox(criminal_frame, height=100)
+    notes_entry.pack(fill="x", padx=10, pady=5)
+
+    # --- Image Uploads and Buttons ---
+    button_frame = ctk.CTkFrame(scrollable_frame)
+    button_frame.pack(fill="x", padx=10, pady=10)
+    face_image_path = [None]
+    additional_images = []
+    status_label = ctk.CTkLabel(scrollable_frame, text="")
+    status_label.pack(fill="x", padx=10, pady=5)
+
+    # Progress overlay
+    progress_overlay = ctk.CTkFrame(root, fg_color=("#000000", "#000000"), corner_radius=10)
+    progress_overlay.place(relx=0.5, rely=0.5, anchor="center")
+    progress_overlay.lower()
+    progress_label = ctk.CTkLabel(progress_overlay, text="Processing...", font=("Roboto", 16, "bold"))
+    progress_label.pack(padx=20, pady=(20, 10))
+    progress_bar = ctk.CTkProgressBar(progress_overlay, orientation="horizontal", mode="indeterminate", width=250)
+    progress_bar.pack(padx=20, pady=(0, 20))
+    progress_bar.configure(progress_color="#4283BD")
+
+    def show_progress(message="Processing...", color="#4283BD", determinate=False):
+        progress_label.configure(text=message)
+        progress_bar.configure(progress_color=color)
+        progress_overlay.lift()
+        progress_overlay.place(relx=0.5, rely=0.5, anchor="center")
+        if determinate:
+            progress_bar.configure(mode="determinate")
+            progress_bar.set(1.0)
+        else:
+            progress_bar.configure(mode="indeterminate")
+            progress_bar.start()
+        root.update_idletasks()
+
+    def hide_progress(delay=0):
+        def _hide():
+            progress_bar.stop()
+            progress_overlay.lower()
+            progress_overlay.place_forget()
+        if delay > 0:
+            root.after(delay, _hide)
+        else:
+            _hide()
+
+    def upload_face_image():
+        filetypes = (("Image files", "*.png;*.jpg;*.jpeg"), ("All files", "*.*"))
+        filename = filedialog.askopenfilename(title="Upload Face Image", filetypes=filetypes)
+        if filename:
+            face_image_path[0] = filename
+            status_label.configure(text=f"Face image selected: {os.path.basename(filename)}")
+
+    def upload_additional_images():
+        filetypes = (("Image files", "*.png;*.jpg;*.jpeg"), ("All files", "*.*"))
+        filenames = filedialog.askopenfilenames(title="Upload Additional Images", filetypes=filetypes)
+        if filenames:
+            additional_images.clear()
+            additional_images.extend(filenames)
+            status_label.configure(text=f"{len(filenames)} additional images selected.")
+
+    def set_form_state(state):
+        widgets = [name_entry, dob_entry, height_entry, weight_entry, eye_color_entry, hair_color_entry, crimes_entry, status_entry, location_entry, notes_entry]
+        for widget in widgets:
+            widget.configure(state=state)
+
+    def clear_form():
+        name_entry.delete(0, "end")
+        dob_entry.delete(0, "end")
+        height_entry.delete(0, "end")
+        weight_entry.delete(0, "end")
+        eye_color_entry.delete(0, "end")
+        hair_color_entry.delete(0, "end")
+        crimes_entry.delete(0, "end")
+        status_entry.delete(0, "end")
+        location_entry.delete(0, "end")
+        notes_entry.delete("1.0", "end")
+        face_image_path[0] = None
+        additional_images.clear()
+
+    def submit_record():
+        status_label.configure(text="Processing face encodings...")
+        set_form_state("disabled")
+        show_progress("Encoding face(s)...", color="#4283BD")
+        all_image_paths = [face_image_path[0]] if face_image_path[0] else []
+        all_image_paths += additional_images
+        def background_work():
+            import face_recognition
+            import numpy as np
+            import os
+            import base64
+            from PIL import Image as PILImage
+            results = []
+            for path in all_image_paths:
+                try:
+                    image = face_recognition.load_image_file(path)
+                    pil_img = PILImage.fromarray(image)
+                    pil_img.thumbnail((600, 600), PILImage.LANCZOS)
+                    image = np.array(pil_img)
+                    face_locations = face_recognition.face_locations(image, model='cnn')
+                    if len(face_locations) == 0:
+                        PILImage.fromarray(image).save(f"debug_no_face_{os.path.basename(path)}.jpg")
+                    encodings = face_recognition.face_encodings(image, face_locations, model='cnn')
+                    if encodings:
+                        results.append((True, encodings[0], path))
+                    else:
+                        results.append((False, f'No face detected in {os.path.basename(path)}', path))
+                except Exception as e:
+                    results.append((False, str(e), path))
+            errors = [msg for success, msg, path in results if not success]
+            encodings = [(enc, path) for success, enc, path in results if success]
+            if not encodings:
+                root.after(0, lambda: [
+                    status_label.configure(text="Face encoding error!"),
+                    set_form_state("normal"),
+                    show_progress(f"Error: {'; '.join(errors)}", color="#C0392B", determinate=True),
+                    hide_progress(delay=1800)
+                ])
+                return
+            try:
+                root.after(0, lambda: show_progress("Uploading to database and images...", color="#4283BD"))
+                data = {
+                    'name': name_entry.get(),
+                    'dob': dob_entry.get(),
+                    'height': height_entry.get(),
+                    'weight': weight_entry.get(),
+                    'eye_color': eye_color_entry.get(),
+                    'hair_color': hair_color_entry.get(),
+                    'crimes': crimes_entry.get(),
+                    'last_known_location': location_entry.get(),
+                    'status': status_entry.get(),
+                    'notes': notes_entry.get("1.0", "end-1c")
+                }
+                try:
+                    from supabase_config import add_criminal_record, supabase
+                    response = add_criminal_record(data)
+                except Exception as e:
+                    root.after(0, lambda e=e: [
+                        status_label.configure(text="Failed to add criminal record."),
+                        set_form_state("normal"),
+                        show_progress(f"Error: {str(e)}", color="#C0392B", determinate=True),
+                        hide_progress(delay=1800)
+                    ])
+                    return
+                if response and response.data:
+                    criminal_id = response.data[0]['id']
+                    for encoding, path in encodings:
+                        encoding_bytes = np.array(encoding, dtype=np.float64).tobytes()
+                        b64 = base64.b64encode(encoding_bytes).decode('utf-8')
+                        supabase.table('face_encodings').insert({
+                            'criminal_id': criminal_id,
+                            'encoding': str(b64),
+                            'source_image': os.path.basename(path)
+                        }).execute()
+                    # Upload and add face image (main)
+                    try:
+                        if face_image_path[0]:
+                            with open(face_image_path[0], 'rb') as f:
+                                image_data = f.read()
+                            filename = f"{criminal_id}_face{os.path.splitext(face_image_path[0])[1]}"
+                            supabase.storage.from_('criminal-images').upload(
+                                filename, 
+                                image_data
+                            )
+                            image_url = supabase.storage.from_('criminal-images').get_public_url(filename)
+                            supabase.table('criminal_images').insert({
+                                'criminal_id': criminal_id,
+                                'image_url': image_url,
+                                'image_type': 'face'
+                            }).execute()
+                    except Exception as e:
+                        root.after(0, lambda: show_progress(f"Warning: Failed to upload face image", color="#F39C12", determinate=True))
+                    # Upload and add additional images
+                    for image_path in additional_images:
+                        try:
+                            with open(image_path, 'rb') as f:
+                                image_data = f.read()
+                            filename = f"{criminal_id}_additional_{os.path.basename(image_path)}"
+                            supabase.storage.from_('criminal-images').upload(
+                                filename, 
+                                image_data
+                            )
+                            image_url = supabase.storage.from_('criminal-images').get_public_url(filename)
+                            supabase.table('criminal_images').insert({
+                                'criminal_id': criminal_id,
+                                'image_url': image_url,
+                                'image_type': 'additional'
+                            }).execute()
+                        except Exception as e:
+                            root.after(0, lambda path=image_path: show_progress(f"Warning: Failed to upload additional image: {path}", color="#F39C12", determinate=True))
+                    root.after(0, lambda: [
+                        status_label.configure(text="Record added successfully!"),
+                        set_form_state("normal"),
+                        show_progress("Success! Record added.", color="#27AE60", determinate=True),
+                        clear_form(),
+                        hide_progress(delay=1800)
+                    ])
+                else:
+                    root.after(0, lambda: [
+                        status_label.configure(text="Failed to add record."),
+                        set_form_state("normal"),
+                        show_progress("Error: Failed to add criminal record!", color="#C0392B", determinate=True),
+                        hide_progress(delay=1800)
+                    ])
+            except Exception as e:
+                root.after(0, lambda e=e: [
+                    status_label.configure(text="An error occurred."),
+                    set_form_state("normal"),
+                    show_progress(f"Error: {str(e)}", color="#C0392B", determinate=True),
+                    hide_progress(delay=1800)
+                ])
+        import threading
+        threading.Thread(target=background_work, daemon=True).start()
+
+    face_image_btn = ctk.CTkButton(button_frame, text="Upload Face Image", command=upload_face_image)
+    face_image_btn.pack(side="left", padx=5, pady=5)
+    additional_images_btn = ctk.CTkButton(button_frame, text="Upload Additional Images", command=upload_additional_images)
+    additional_images_btn.pack(side="left", padx=5, pady=5)
+    submit_btn = ctk.CTkButton(button_frame, text="Submit Record", command=submit_record)
+    submit_btn.pack(side="right", padx=5, pady=5)
 
 # Start with the welcome screen
 show_welcome_screen()
