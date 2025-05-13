@@ -21,6 +21,11 @@ sketch_canvas = None
 face_matcher = FaceMatcher()
 uploaded_image_path = None
 
+# Add global progress overlay for matching/search
+progress_overlay = None
+progress_label = None
+progress_bar = None
+
 class DraggableFeature:
     def __init__(self, canvas, image_path, initial_position=(0, 0)):
         self.canvas = canvas
@@ -715,67 +720,104 @@ def submit_image():
     except Exception as e:
         tkmb.showerror("Error", f"Failed to process image: {str(e)}")
 
+def create_progress_overlay(parent):
+    global progress_overlay, progress_label, progress_bar
+    if progress_overlay is not None:
+        return
+    progress_overlay = ctk.CTkFrame(parent, fg_color=("#000000", "#000000"), corner_radius=10)
+    progress_overlay.place(relx=0.5, rely=0.5, anchor="center")
+    progress_overlay.lower()  # Hide initially
+    progress_label = ctk.CTkLabel(progress_overlay, text="Processing...", font=("Roboto", 16, "bold"))
+    progress_label.pack(padx=20, pady=(20, 10))
+    progress_bar = ctk.CTkProgressBar(progress_overlay, orientation="horizontal", mode="indeterminate", width=250)
+    progress_bar.pack(padx=20, pady=(0, 20))
+    progress_bar.configure(progress_color="#4283BD")
+
+def show_progress(message="Processing...", color="#4283BD", determinate=False):
+    global progress_overlay, progress_label, progress_bar
+    if progress_overlay is None:
+        create_progress_overlay(root)
+    progress_label.configure(text=message)
+    progress_bar.configure(progress_color=color)
+    progress_overlay.lift()
+    progress_overlay.place(relx=0.5, rely=0.5, anchor="center")
+    if determinate:
+        progress_bar.configure(mode="determinate")
+        progress_bar.set(1.0)
+    else:
+        progress_bar.configure(mode="indeterminate")
+        progress_bar.start()
+    root.update_idletasks()
+
+def hide_progress(delay=0):
+    global progress_overlay, progress_bar
+    def _hide():
+        progress_bar.stop()
+        progress_overlay.lower()
+        progress_overlay.place_forget()
+    if delay > 0:
+        root.after(delay, _hide)
+    else:
+        _hide()
+
 def process_image(image_path):
     """Process uploaded or captured image for face matching."""
     try:
+        show_progress("Encoding face...", color="#4283BD")
         # Process the image using face matcher
         face_encodings = face_matcher.process_sketch(sketch_path=image_path)
-        
         if not face_encodings:
-            tkmb.showerror("Error", "No faces detected in the image. Please try another image.")
+            show_progress("No faces detected in the image.", color="#C0392B", determinate=True)
+            hide_progress(delay=1800)
             return
-        
-        # Search for matches in the database
-        matches = []
+        show_progress("Searching database for matches...", color="#4283BD")
+        # Search for the best match in the database (use higher tolerance)
+        best_match = None
+        best_distance = 1e9
         for encoding in face_encodings:
-            match_results = face_matcher.match_face(encoding)
-            matches.extend(match_results)
-        
-        if not matches:
-            tkmb.showinfo("No Matches", "No matching records found in the database.")
+            match_results = face_matcher.match_face(encoding, tolerance=0.75)
+            if match_results:
+                match = match_results[0]
+                if 'distance' in match and match['distance'] < best_distance:
+                    best_match = match
+                    best_distance = match['distance']
+        if not best_match:
+            show_progress("No matching records found.", color="#C0392B", determinate=True)
+            hide_progress(delay=1800)
             return
-        
-        # Sort matches by confidence
-        matches.sort(key=lambda x: x.get('confidence', 0), reverse=True)
-        
-        # Display matches
-        display_matches(matches)
-        
+        # Show only the best match and its score
+        show_progress("Match found! Displaying result...", color="#27AE60", determinate=True)
+        root.after(1200, lambda: [hide_progress(), display_best_match(best_match)])
     except Exception as e:
         logger.error(f"Error processing image: {str(e)}")
-        tkmb.showerror("Error", f"An error occurred while processing the image: {str(e)}")
+        show_progress(f"Error: {str(e)}", color="#C0392B", determinate=True)
+        hide_progress(delay=1800)
 
-def display_matches(matches):
-    """Display matching criminal records in a new window."""
+def display_best_match(match):
+    """Display the best matching criminal record in a new window."""
     matches_window = ctk.CTkToplevel()
-    matches_window.title("Matching Records")
-    matches_window.geometry("800x600")
-    
-    # Create scrollable frame
-    scroll_frame = ctk.CTkScrollableFrame(matches_window)
-    scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
-    
-    for match in matches:
-        # Create frame for each match
-        match_frame = ctk.CTkFrame(scroll_frame)
-        match_frame.pack(fill="x", padx=5, pady=5)
-        
-        # Display match information
-        info_text = f"""
-        Name: {match.get('name', 'Unknown')}
-        ID: {match.get('id', 'Unknown')}
-        Confidence: {match.get('confidence', 0):.2%}
-        Last Known Location: {match.get('last_known_location', 'Unknown')}
-        """
-        
-        ctk.CTkLabel(match_frame, text=info_text).pack(padx=10, pady=5)
-        
-        # Add view details button
-        ctk.CTkButton(
-            match_frame,
-            text="View Details",
-            command=lambda m=match: show_match_details(m)
-        ).pack(padx=10, pady=5)
+    matches_window.title("Best Match")
+    matches_window.geometry("600x400")
+
+    # Create frame for match
+    match_frame = ctk.CTkFrame(matches_window)
+    match_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+    # Display match information
+    info_text = f"""
+    Name: {match.get('name', 'Unknown')}
+    ID: {match.get('id', 'Unknown')}
+    Matching Score: {1 - match.get('distance', 1):.2%}
+    Last Known Location: {match.get('last_known_location', 'Unknown')}
+    """
+    ctk.CTkLabel(match_frame, text=info_text, font=("Roboto", 16)).pack(padx=10, pady=10)
+
+    # Add view details button
+    ctk.CTkButton(
+        match_frame,
+        text="View Details",
+        command=lambda m=match: show_match_details(m)
+    ).pack(padx=10, pady=10)
 
 def show_match_details(match):
     """Show detailed information about a matching record."""

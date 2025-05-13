@@ -1,0 +1,86 @@
+@startuml
+' Detective007 Forensic Sketch Creation and Criminal Detection System - ERD
+' Each entity/table is fully detailed with all fields, PKs, and FKs
+
+entity profiles {
+  *id : UUID <<PK>>
+  username : TEXT
+  email : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity criminal_records {
+  *id : UUID <<PK>>
+  name : TEXT
+  dob : DATE
+  height : NUMERIC
+  weight : NUMERIC
+  eye_color : TEXT
+  hair_color : TEXT
+  last_known_location : TEXT
+  last_known_date : DATE
+  status : TEXT
+  notes : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity crimes {
+  *id : UUID <<PK>>
+  criminal_id : UUID <<FK>>
+  crime_type : TEXT
+  date_committed : DATE
+  location : TEXT
+  description : TEXT
+  severity : TEXT
+  status : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity criminal_images {
+  *id : UUID <<PK>>
+  criminal_id : UUID <<FK>>
+  image_url : TEXT
+  image_type : TEXT
+  created_at : TIMESTAMP
+}
+
+entity face_encodings {
+  *id : UUID <<PK>>
+  criminal_id : UUID <<FK>>
+  encoding : BYTEA or TEXT
+  source_image : TEXT
+}
+
+entity search_history {
+  *id : UUID <<PK>>
+  user_id : UUID <<FK>>
+  search_type : TEXT
+  search_date : TIMESTAMP
+  result_count : INTEGER
+  search_image_url : TEXT
+}
+
+' Relationships
+profiles ||--o{ search_history : "has"
+criminal_records ||--o{ crimes : "committed by"
+criminal_records ||--o{ criminal_images : "has"
+criminal_records ||--o{ face_encodings : "has"
+
+' Foreign key notes
+note right of search_history::user_id
+  FK to profiles.id
+end note
+note right of crimes::criminal_id
+  FK to criminal_records.id
+end note
+note right of criminal_images::criminal_id
+  FK to criminal_records.id
+end note
+note right of face_encodings::criminal_id
+  FK to criminal_records.id
+end note
+
+@enduml 

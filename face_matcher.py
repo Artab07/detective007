@@ -91,7 +91,7 @@ class FaceMatcher:
             return []
 
     def get_face_encodings(self, image, known_face_locations=None):
-        """Return face encodings for all detected faces with enhanced error handling."""
+        """Return face encodings for all detected faces with enhanced error handling. Use CNN model for consistency."""
         try:
             # Ensure image is uint8 and RGB or grayscale
             if not isinstance(image, np.ndarray):
@@ -113,14 +113,15 @@ class FaceMatcher:
             else:
                 raise ValueError(f"Unsupported image shape for face encoding: {image.shape}")
 
+            # Always use CNN model for detection and encoding
             if known_face_locations is None:
-                known_face_locations = self.detect_faces(image)
-            
+                known_face_locations = face_recognition.face_locations(image, model='cnn')
             if not known_face_locations:
                 logger.warning("No faces detected in the image")
                 return []
-            
-            encodings = face_recognition.face_encodings(image, known_face_locations)
+            encodings = face_recognition.face_encodings(image, known_face_locations, model='cnn')
+            if encodings:
+                print("Actual encoding array for matching:", encodings[0].tolist())
             return encodings
         except Exception as e:
             logger.error(f"Error getting face encodings: {str(e)}")

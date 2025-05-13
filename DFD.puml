@@ -1,0 +1,46 @@
+@startuml
+' Detective007 Forensic Sketch Creation and Criminal Detection System - Data Flow Diagram (DFD)
+' Level 1 DFD: Shows main processes, data stores, external entities, and data flows
+
+' External Entities
+actor User as user
+actor Supabase as supabase
+
+' Processes
+rectangle "1. Sketch Creation" as sketch_creation
+rectangle "2. Image Upload" as image_upload
+rectangle "3. Face Encoding" as face_encoding
+rectangle "4. Face Matching" as face_matching
+rectangle "5. Result Display" as result_display
+rectangle "6. Criminal Record Management" as record_mgmt
+
+' Data Stores
+database "A. Criminal Records DB" as db_criminals
+database "B. Images Storage" as db_images
+database "C. Face Encodings DB" as db_encodings
+
+' Data Flows
+user --> sketch_creation : Selects features, draws sketch
+user --> image_upload : Uploads/captures image
+sketch_creation --> image_upload : Sketch image
+image_upload --> face_encoding : Image/sketch file
+face_encoding --> db_encodings : Store face encoding
+face_encoding --> face_matching : Encoded face
+face_matching --> db_encodings : Retrieve all encodings
+face_matching --> db_criminals : Retrieve criminal records
+face_matching --> db_images : Retrieve images
+face_matching --> result_display : Best match/result
+result_display --> user : Show match, details
+
+' Admin/Operator flows
+user --> record_mgmt : Add/edit criminal record
+record_mgmt --> db_criminals : Update records
+record_mgmt --> db_images : Upload images
+record_mgmt --> db_encodings : Add encodings
+
+' Supabase as backend
+supabase --> db_criminals : DB API
+supabase --> db_images : Storage API
+supabase --> db_encodings : DB API
+
+@enduml 
