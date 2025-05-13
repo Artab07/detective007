@@ -470,7 +470,7 @@ def show_premain_screen():
 
 
 def show_premain_screen_2():
-    global left_frame, upload_button1, button_frame
+    global left_frame, middle_frame, right_frame, upload_button1, button_frame
     # Clear the current contents of the window
     for widget in root.winfo_children():
         widget.destroy()
@@ -785,54 +785,27 @@ def process_image(image_path):
             show_progress("No matching records found.", color="#C0392B", determinate=True)
             hide_progress(delay=1800)
             return
-        # Show only the best match and its score
+        # Show only the best match and its score in the right and middle frames
         show_progress("Match found! Displaying result...", color="#27AE60", determinate=True)
-        root.after(1200, lambda: [hide_progress(), display_best_match(best_match)])
+        root.after(1200, lambda: [hide_progress(), display_best_match_in_frames(best_match)])
     except Exception as e:
         logger.error(f"Error processing image: {str(e)}")
         show_progress(f"Error: {str(e)}", color="#C0392B", determinate=True)
         hide_progress(delay=1800)
 
-def display_best_match(match):
-    """Display the best matching criminal record in a new window."""
-    matches_window = ctk.CTkToplevel()
-    matches_window.title("Best Match")
-    matches_window.geometry("600x400")
+# Helper to clear a frame
+def clear_frame(frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
 
-    # Create frame for match
-    match_frame = ctk.CTkFrame(matches_window)
-    match_frame.pack(fill="both", expand=True, padx=20, pady=20)
-
-    # Display match information
-    info_text = f"""
-    Name: {match.get('name', 'Unknown')}
-    ID: {match.get('id', 'Unknown')}
-    Matching Score: {1 - match.get('distance', 1):.2%}
-    Last Known Location: {match.get('last_known_location', 'Unknown')}
-    """
-    ctk.CTkLabel(match_frame, text=info_text, font=("Roboto", 16)).pack(padx=10, pady=10)
-
-    # Add view details button
-    ctk.CTkButton(
-        match_frame,
-        text="View Details",
-        command=lambda m=match: show_match_details(m)
-    ).pack(padx=10, pady=10)
-
-def show_match_details(match):
-    """Show detailed information about a matching record."""
-    details_window = ctk.CTkToplevel()
-    details_window.title(f"Criminal Record Details - {match.get('name', 'Unknown')}")
-    details_window.geometry("600x400")
-    
-    # Create scrollable frame for details
-    scroll_frame = ctk.CTkScrollableFrame(details_window)
-    scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
-    
-    # Display all available information
+def display_best_match_in_frames(match):
+    global right_frame, middle_frame
+    # --- Update right_frame with details ---
+    clear_frame(right_frame)
     details = [
         ("Name", match.get('name', 'Unknown')),
         ("ID", match.get('id', 'Unknown')),
+        ("Matching Score", f"{1 - match.get('distance', 1):.2%}"),
         ("Date of Birth", match.get('dob', 'Unknown')),
         ("Height", match.get('height', 'Unknown')),
         ("Weight", match.get('weight', 'Unknown')),
@@ -840,17 +813,44 @@ def show_match_details(match):
         ("Hair Color", match.get('hair_color', 'Unknown')),
         ("Last Known Location", match.get('last_known_location', 'Unknown')),
         ("Last Known Date", match.get('last_known_date', 'Unknown')),
-        ("Crimes", match.get('crimes', 'Unknown')),
         ("Status", match.get('status', 'Unknown')),
         ("Notes", match.get('notes', 'No additional notes'))
     ]
-    
     for label, value in details:
-        frame = ctk.CTkFrame(scroll_frame)
+        frame = ctk.CTkFrame(right_frame)
         frame.pack(fill="x", padx=5, pady=2)
-        
         ctk.CTkLabel(frame, text=f"{label}:").pack(side="left", padx=10)
         ctk.CTkLabel(frame, text=str(value)).pack(side="left", padx=10)
+
+    # --- Update middle_frame with the best match's image ---
+    clear_frame(middle_frame)
+    # Try to get the image_url from match, or fetch from DB if not present
+    image_url = match.get('image_url')
+    if not image_url:
+        # Try to fetch from supabase criminal_images table (face type)
+        try:
+            from supabase_config import supabase
+            images = supabase.table('criminal_images').select('*').eq('criminal_id', match.get('id')).eq('image_type', 'face').execute()
+            if images.data and len(images.data) > 0:
+                image_url = images.data[0]['image_url']
+        except Exception as e:
+            logger.error(f"Error fetching image from DB: {str(e)}")
+    if image_url:
+        try:
+            import requests
+            from io import BytesIO
+            response = requests.get(image_url)
+            img = Image.open(BytesIO(response.content))
+            img = img.resize((300, 300), Image.LANCZOS)
+            photo = ctk.CTkImage(img, size=(300, 300))
+            img_label = ctk.CTkLabel(middle_frame, image=photo, text="")
+            img_label.image = photo
+            img_label.pack(pady=20)
+        except Exception as e:
+            logger.error(f"Error loading/displaying image: {str(e)}")
+            ctk.CTkLabel(middle_frame, text="Image not available").pack(pady=20)
+    else:
+        ctk.CTkLabel(middle_frame, text="Image not available").pack(pady=20)
 
 def submit_sketch():
     """Submit the created sketch for face matching."""
